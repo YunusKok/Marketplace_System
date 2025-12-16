@@ -226,6 +226,12 @@ const Faturalar: React.FC = () => {
         {/* Özet Kartları */}
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 20, marginBottom: 24 }}>
           <div className="summary-card card-primary">
+            <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>Net Durum</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)' }}>
+              {formatCurrency(totalSatis - totalAlis)}
+            </div>
+          </div>
+          <div className="summary-card card-success">
             <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>Toplam Satış</div>
             <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-success)', display: 'flex', alignItems: 'center', gap: 8 }}>
               {formatCurrency(totalSatis)}
@@ -237,12 +243,6 @@ const Faturalar: React.FC = () => {
             <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-danger)', display: 'flex', alignItems: 'center', gap: 8 }}>
               {formatCurrency(totalAlis)}
               <ArrowDownLeft size={20} />
-            </div>
-          </div>
-          <div className="summary-card">
-            <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>Net Durum</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)' }}>
-              {formatCurrency(totalSatis - totalAlis)}
             </div>
           </div>
         </div>
