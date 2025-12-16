@@ -231,18 +231,18 @@ const Faturalar: React.FC = () => {
               {formatCurrency(totalSatis - totalAlis)}
             </div>
           </div>
-          <div className="summary-card card-success">
-            <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>Toplam Satış</div>
-            <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-success)', display: 'flex', alignItems: 'center', gap: 8 }}>
-              {formatCurrency(totalSatis)}
-              <ArrowUpRight size={20} />
-            </div>
-          </div>
           <div className="summary-card card-danger">
             <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>Toplam Alış</div>
             <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-danger)', display: 'flex', alignItems: 'center', gap: 8 }}>
               {formatCurrency(totalAlis)}
               <ArrowDownLeft size={20} />
+            </div>
+          </div>
+          <div className="summary-card card-success">
+            <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>Toplam Satış</div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-success)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              {formatCurrency(totalSatis)}
+              <ArrowUpRight size={20} />
             </div>
           </div>
         </div>

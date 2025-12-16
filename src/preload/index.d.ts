@@ -89,6 +89,25 @@ interface UserData {
   rol: string
 }
 
+// Kasa işlem tipi
+interface KasaIslemData {
+  id: string
+  cari_id?: string
+  tarih: string
+  aciklama: string
+  tutar: number
+  islem_tipi: 'TAHSILAT' | 'ODEME'
+  olusturma_tarihi?: string
+  cari_unvan?: string
+}
+
+// Kasa bakiye tipi
+interface KasaBakiyeData {
+  bakiye: number
+  tahsilat: number
+  odeme: number
+}
+
 // Database API tipi
 interface DatabaseAPI {
   // Cari işlemleri
@@ -163,6 +182,18 @@ interface DatabaseAPI {
   }) => Promise<MustahsilData | null>
   deleteMustahsil: (id: string) => Promise<boolean>
   
+  // Kasa işlemleri
+  getKasaIslemleri: () => Promise<KasaIslemData[]>
+  getKasaBakiye: () => Promise<KasaBakiyeData>
+  addKasaIslem: (islem: {
+    cariId?: string
+    tarih: string
+    aciklama: string
+    tutar: number
+    islemTipi: 'TAHSILAT' | 'ODEME'
+  }) => Promise<KasaIslemData | null>
+  deleteKasaIslem: (id: string) => Promise<boolean>
+  
   // Auth
   login: (username: string, password: string) => Promise<UserData | null>
 }
@@ -174,5 +205,5 @@ declare global {
   }
 }
 
-export { CariData, HareketData, FaturaData, MustahsilData, DashboardStats, ExportResult, UserData, DatabaseAPI }
+export { CariData, HareketData, FaturaData, MustahsilData, KasaIslemData, KasaBakiyeData, DashboardStats, ExportResult, UserData, DatabaseAPI }
 

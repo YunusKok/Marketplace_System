@@ -583,5 +583,145 @@ ipcMain.handle('db:deleteMustahsil', async (_, id: string) => {
   return true
 })
 
+// ===================================
+// KASA İŞLEMLERİ
+// ===================================
+
+// Kasa işlemlerini getir
+ipcMain.handle('db:getKasaIslemleri', async () => {
+  const db = getDatabase()
+  if (!db) return []
+  
+  return db.prepare(`
+    SELECT k.*, c.unvan as cari_unvan 
+    FROM kasa k 
+    LEFT JOIN cariler c ON k.cari_id = c.id 
+    ORDER BY k.tarih DESC, k.olusturma_tarihi DESC
+  `).all()
+})
+
+// Kasa bakiyesini getir
+ipcMain.handle('db:getKasaBakiye', async () => {
+  const db = getDatabase()
+  if (!db) return { bakiye: 0, tahsilat: 0, odeme: 0 }
+  
+  const tahsilat = db.prepare(`
+    SELECT COALESCE(SUM(tutar), 0) as total FROM kasa WHERE islem_tipi = 'TAHSILAT'
+  `).get() as { total: number }
+  
+  const odeme = db.prepare(`
+    SELECT COALESCE(SUM(tutar), 0) as total FROM kasa WHERE islem_tipi = 'ODEME'
+  `).get() as { total: number }
+  
+  return {
+    bakiye: tahsilat.total - odeme.total,
+    tahsilat: tahsilat.total,
+    odeme: odeme.total
+  }
+})
+
+// Kasa işlemi ekle
+ipcMain.handle('db:addKasaIslem', async (_, islem: {
+  cariId?: string
+  tarih: string
+  aciklama: string
+  tutar: number
+  islemTipi: 'TAHSILAT' | 'ODEME'
+}) => {
+  const db = getDatabase()
+  if (!db) return null
+  
+  const id = `k${Date.now()}`
+  
+  const transaction = db.transaction(() => {
+    // 1. Kasa işlemini ekle
+    db.prepare(`
+      INSERT INTO kasa (id, cari_id, tarih, aciklama, tutar, islem_tipi)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      islem.cariId || null,
+      islem.tarih,
+      islem.aciklama,
+      islem.tutar,
+      islem.islemTipi
+    )
+    
+    // 2. Eğer cari varsa, hareket ekle ve bakiye güncelle
+    if (islem.cariId) {
+      const sonHareket = db.prepare(`
+        SELECT bakiye, bakiye_turu FROM hareketler 
+        WHERE cari_id = ? ORDER BY olusturma_tarihi DESC LIMIT 1
+      `).get(islem.cariId) as { bakiye: number; bakiye_turu: string } | undefined
+      
+      let mevcutNetBakiye = 0
+      if (sonHareket) {
+        if (sonHareket.bakiye_turu === 'A') {
+          mevcutNetBakiye = sonHareket.bakiye
+        } else {
+          mevcutNetBakiye = -sonHareket.bakiye
+        }
+      }
+      
+      // Tahsilat = Cari borcu azalır (alacak)
+      // Ödeme = Cari alacağı artar (borç)
+      let borc = 0
+      let alacak = 0
+      
+      if (islem.islemTipi === 'TAHSILAT') {
+        alacak = islem.tutar // Cariden tahsilat yapıldı, borcu düşer
+      } else {
+        borc = islem.tutar // Cariye ödeme yapıldı, alacağı artar
+      }
+      
+      const yeniNetBakiye = mevcutNetBakiye + alacak - borc
+      
+      let yeniBakiyeTuru = 'A'
+      let yeniMutlakBakiye = yeniNetBakiye
+      
+      if (yeniNetBakiye < 0) {
+        yeniBakiyeTuru = 'B'
+        yeniMutlakBakiye = Math.abs(yeniNetBakiye)
+      }
+      
+      const hareketId = `h${Date.now()}`
+      
+      db.prepare(`
+        INSERT INTO hareketler (id, cari_id, tarih, aciklama, borc, alacak, bakiye, bakiye_turu, islem_tipi)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        hareketId,
+        islem.cariId,
+        islem.tarih,
+        islem.aciklama,
+        borc,
+        alacak,
+        yeniMutlakBakiye,
+        yeniBakiyeTuru,
+        islem.islemTipi === 'TAHSILAT' ? 'TAHSILAT' : 'ODEME'
+      )
+      
+      // 3. Cari bakiyesini güncelle
+      db.prepare(`
+        UPDATE cariler SET bakiye = ?, bakiye_turu = ?, guncelleme_tarihi = datetime('now')
+        WHERE id = ?
+      `).run(yeniMutlakBakiye, yeniBakiyeTuru, islem.cariId)
+    }
+  })
+  
+  transaction()
+  
+  return db.prepare('SELECT * FROM kasa WHERE id = ?').get(id)
+})
+
+// Kasa işlemi sil
+ipcMain.handle('db:deleteKasaIslem', async (_, id: string) => {
+  const db = getDatabase()
+  if (!db) return false
+  
+  db.prepare('DELETE FROM kasa WHERE id = ?').run(id)
+  return true
+})
+
 export {}
 

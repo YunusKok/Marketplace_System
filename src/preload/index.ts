@@ -77,6 +77,18 @@ const dbAPI = {
   }) => ipcRenderer.invoke('db:addMustahsil', mustahsil),
   deleteMustahsil: (id: string) => ipcRenderer.invoke('db:deleteMustahsil', id),
   
+  // Kasa işlemleri
+  getKasaIslemleri: () => ipcRenderer.invoke('db:getKasaIslemleri'),
+  getKasaBakiye: () => ipcRenderer.invoke('db:getKasaBakiye'),
+  addKasaIslem: (islem: {
+    cariId?: string
+    tarih: string
+    aciklama: string
+    tutar: number
+    islemTipi: 'TAHSILAT' | 'ODEME'
+  }) => ipcRenderer.invoke('db:addKasaIslem', islem),
+  deleteKasaIslem: (id: string) => ipcRenderer.invoke('db:deleteKasaIslem', id),
+  
   // Auth
   login: (username: string, password: string) => 
     ipcRenderer.invoke('db:login', username, password)
