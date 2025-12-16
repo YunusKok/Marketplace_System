@@ -48,6 +48,20 @@ const dbAPI = {
   exportCariEkstre: (cariId: string) => 
     ipcRenderer.invoke('db:exportCariEkstre', cariId),
   
+  // Fatura işlemleri
+  getFaturalar: () => ipcRenderer.invoke('db:getFaturalar'),
+  addFatura: (fatura: {
+    cariId: string
+    tarih: string
+    faturaNo: string
+    tutar: number
+    kdv: number
+    genelToplam: number
+    faturaTipi: 'ALIS' | 'SATIS'
+    aciklama?: string
+  }) => ipcRenderer.invoke('db:addFatura', fatura),
+  deleteFatura: (id: string) => ipcRenderer.invoke('db:deleteFatura', id),
+  
   // Auth
   login: (username: string, password: string) => 
     ipcRenderer.invoke('db:login', username, password)

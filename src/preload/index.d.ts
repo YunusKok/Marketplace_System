@@ -40,6 +40,21 @@ interface DashboardStats {
   sonHareketler: HareketData[]
 }
 
+// Fatura tipi
+interface FaturaData {
+  id: string
+  cari_id: string
+  fatura_no: string
+  tarih: string
+  toplam: number
+  kdv: number
+  genel_toplam: number
+  fatura_tipi: 'ALIS' | 'SATIS'
+  aciklama?: string
+  olusturma_tarihi?: string
+  cari_unvan?: string
+}
+
 // Export sonucu
 interface ExportResult {
   success: boolean
@@ -100,6 +115,20 @@ interface DatabaseAPI {
   exportToExcel: (tableName: string, fileName?: string) => Promise<ExportResult>
   exportCariEkstre: (cariId: string) => Promise<ExportResult>
   
+  // Fatura işlemleri
+  getFaturalar: () => Promise<FaturaData[]>
+  addFatura: (fatura: {
+    cariId: string
+    tarih: string
+    faturaNo: string
+    tutar: number
+    kdv: number
+    genelToplam: number
+    faturaTipi: 'ALIS' | 'SATIS'
+    aciklama?: string
+  }) => Promise<FaturaData | null>
+  deleteFatura: (id: string) => Promise<boolean>
+  
   // Auth
   login: (username: string, password: string) => Promise<UserData | null>
 }
@@ -111,4 +140,4 @@ declare global {
   }
 }
 
-export { CariData, HareketData, DashboardStats, ExportResult, UserData, DatabaseAPI }
+export { CariData, HareketData, FaturaData, DashboardStats, ExportResult, UserData, DatabaseAPI }
