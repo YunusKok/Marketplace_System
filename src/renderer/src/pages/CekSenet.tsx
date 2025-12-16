@@ -425,11 +425,22 @@ const CekSenet: React.FC = () => {
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>Bekleyen ({ozet.bekleyenAdet} adet)</div>
-                <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-warning)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginRight: 12 }}>
+                  <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Bekleyen</div>
+                  <span style={{ 
+                    fontSize: 12, 
+                    fontWeight: 600, 
+                    padding: '2px 8px', 
+                    borderRadius: 12, 
+                    background: 'rgba(245, 158, 11, 0.2)', 
+                    color: 'var(--accent-warning)' 
+                  }}>
+                    {ozet.bekleyenAdet} adet
+                  </span>
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-warning)' }}>
                   {formatCurrency(ozet.bekleyen)}
-                  <Clock size={20} />
                 </div>
               </div>
               <div style={{ 
@@ -439,7 +450,8 @@ const CekSenet: React.FC = () => {
                 background: 'rgba(245, 158, 11, 0.15)',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                flexShrink: 0
               }}>
                 <Calendar size={20} color="var(--accent-warning)" />
               </div>
@@ -461,11 +473,22 @@ const CekSenet: React.FC = () => {
             }}
           >
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>Tahsil Edilen ({ozet.tahsilEdilenAdet} adet)</div>
-                <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-success)', display: 'flex', alignItems: 'center', gap: 8 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, marginRight: 12 }}>
+                  <div style={{ fontSize: 14, color: 'var(--text-secondary)' }}>Tahsil Edilen</div>
+                  <span style={{ 
+                    fontSize: 12, 
+                    fontWeight: 600, 
+                    padding: '2px 8px', 
+                    borderRadius: 12, 
+                    background: 'rgba(16, 185, 129, 0.2)', 
+                    color: 'var(--accent-success)' 
+                  }}>
+                    {ozet.tahsilEdilenAdet} adet
+                  </span>
+                </div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-success)' }}>
                   {formatCurrency(ozet.tahsilEdilen)}
-                  <CheckCircle2 size={20} />
                 </div>
               </div>
               <div style={{ 
@@ -475,7 +498,8 @@ const CekSenet: React.FC = () => {
                 background: 'rgba(16, 185, 129, 0.15)',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                flexShrink: 0
               }}>
                 <Check size={20} color="var(--accent-success)" />
               </div>
