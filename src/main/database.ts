@@ -124,6 +124,27 @@ const createTables = (): void => {
     )
   `)
 
+  // Müstahsil makbuzları tablosu
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS mustahsiller (
+      id TEXT PRIMARY KEY,
+      cari_id TEXT,
+      makbuz_no TEXT UNIQUE NOT NULL,
+      tarih TEXT NOT NULL,
+      urun_adi TEXT NOT NULL,
+      miktar REAL DEFAULT 0,
+      birim TEXT DEFAULT 'KG',
+      birim_fiyat REAL DEFAULT 0,
+      toplam REAL DEFAULT 0,
+      stopaj_orani REAL DEFAULT 2,
+      stopaj_tutari REAL DEFAULT 0,
+      net_tutar REAL DEFAULT 0,
+      aciklama TEXT,
+      olusturma_tarihi TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (cari_id) REFERENCES cariler(id) ON DELETE SET NULL
+    )
+  `)
+
   // Kullanıcılar tablosu
   db.exec(`
     CREATE TABLE IF NOT EXISTS kullanicilar (

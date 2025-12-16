@@ -62,6 +62,25 @@ interface ExportResult {
   error?: string
 }
 
+// Müstahsil tipi
+interface MustahsilData {
+  id: string
+  cari_id: string
+  makbuz_no: string
+  tarih: string
+  urun_adi: string
+  miktar: number
+  birim: string
+  birim_fiyat: number
+  toplam: number
+  stopaj_orani: number
+  stopaj_tutari: number
+  net_tutar: number
+  aciklama?: string
+  olusturma_tarihi?: string
+  cari_unvan?: string
+}
+
 // Kullanıcı tipi
 interface UserData {
   id: string
@@ -129,6 +148,21 @@ interface DatabaseAPI {
   }) => Promise<FaturaData | null>
   deleteFatura: (id: string) => Promise<boolean>
   
+  // Müstahsil işlemleri
+  getMustahsiller: () => Promise<MustahsilData[]>
+  addMustahsil: (mustahsil: {
+    cariId: string
+    tarih: string
+    makbuzNo: string
+    urunAdi: string
+    miktar: number
+    birim: string
+    birimFiyat: number
+    stopajOrani: number
+    aciklama?: string
+  }) => Promise<MustahsilData | null>
+  deleteMustahsil: (id: string) => Promise<boolean>
+  
   // Auth
   login: (username: string, password: string) => Promise<UserData | null>
 }
@@ -140,4 +174,5 @@ declare global {
   }
 }
 
-export { CariData, HareketData, FaturaData, DashboardStats, ExportResult, UserData, DatabaseAPI }
+export { CariData, HareketData, FaturaData, MustahsilData, DashboardStats, ExportResult, UserData, DatabaseAPI }
+

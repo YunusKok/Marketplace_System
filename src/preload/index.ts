@@ -62,6 +62,21 @@ const dbAPI = {
   }) => ipcRenderer.invoke('db:addFatura', fatura),
   deleteFatura: (id: string) => ipcRenderer.invoke('db:deleteFatura', id),
   
+  // Müstahsil işlemleri
+  getMustahsiller: () => ipcRenderer.invoke('db:getMustahsiller'),
+  addMustahsil: (mustahsil: {
+    cariId: string
+    tarih: string
+    makbuzNo: string
+    urunAdi: string
+    miktar: number
+    birim: string
+    birimFiyat: number
+    stopajOrani: number
+    aciklama?: string
+  }) => ipcRenderer.invoke('db:addMustahsil', mustahsil),
+  deleteMustahsil: (id: string) => ipcRenderer.invoke('db:deleteMustahsil', id),
+  
   // Auth
   login: (username: string, password: string) => 
     ipcRenderer.invoke('db:login', username, password)

@@ -458,5 +458,130 @@ ipcMain.handle('db:deleteFatura', async (_, id: string) => {
   return true
 })
 
+// ===================================
+// MÜSTAHSİL İŞLEMLERİ
+// ===================================
+
+// Müstahsilleri getir
+ipcMain.handle('db:getMustahsiller', async () => {
+  const db = getDatabase()
+  if (!db) return []
+  
+  return db.prepare(`
+    SELECT m.*, c.unvan as cari_unvan 
+    FROM mustahsiller m 
+    LEFT JOIN cariler c ON m.cari_id = c.id 
+    ORDER BY m.tarih DESC
+  `).all()
+})
+
+// Müstahsil ekle
+ipcMain.handle('db:addMustahsil', async (_, mustahsil: {
+  cariId: string
+  tarih: string
+  makbuzNo: string
+  urunAdi: string
+  miktar: number
+  birim: string
+  birimFiyat: number
+  stopajOrani: number
+  aciklama?: string
+}) => {
+  const db = getDatabase()
+  if (!db) return null
+  
+  const id = `m${Date.now()}`
+  
+  // Hesaplamalar
+  const toplam = mustahsil.miktar * mustahsil.birimFiyat
+  const stopajTutari = toplam * (mustahsil.stopajOrani / 100)
+  const netTutar = toplam - stopajTutari
+  
+  // Transaction başlat
+  const transaction = db.transaction(() => {
+    // 1. Müstahsili ekle
+    db.prepare(`
+      INSERT INTO mustahsiller (id, cari_id, makbuz_no, tarih, urun_adi, miktar, birim, birim_fiyat, toplam, stopaj_orani, stopaj_tutari, net_tutar, aciklama)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      mustahsil.cariId,
+      mustahsil.makbuzNo,
+      mustahsil.tarih,
+      mustahsil.urunAdi,
+      mustahsil.miktar,
+      mustahsil.birim,
+      mustahsil.birimFiyat,
+      toplam,
+      mustahsil.stopajOrani,
+      stopajTutari,
+      netTutar,
+      mustahsil.aciklama || ''
+    )
+
+    // 2. Hareketi ekle - Müstahsil alımda üreticiye borç oluşur
+    const sonHareket = db.prepare(`
+      SELECT bakiye, bakiye_turu FROM hareketler 
+      WHERE cari_id = ? ORDER BY olusturma_tarihi DESC LIMIT 1
+    `).get(mustahsil.cariId) as { bakiye: number; bakiye_turu: string } | undefined
+    
+    let mevcutNetBakiye = 0
+    if (sonHareket) {
+      if (sonHareket.bakiye_turu === 'A') {
+        mevcutNetBakiye = sonHareket.bakiye
+      } else {
+        mevcutNetBakiye = -sonHareket.bakiye
+      }
+    }
+    
+    // Müstahsil alımı = Borç (üreticiye ödeme yapılacak)
+    const yeniNetBakiye = mevcutNetBakiye - netTutar
+    
+    let yeniBakiyeTuru = 'A'
+    let yeniMutlakBakiye = yeniNetBakiye
+    
+    if (yeniNetBakiye < 0) {
+      yeniBakiyeTuru = 'B'
+      yeniMutlakBakiye = Math.abs(yeniNetBakiye)
+    }
+    
+    const hareketId = `h${Date.now()}`
+    
+    db.prepare(`
+      INSERT INTO hareketler (id, cari_id, tarih, aciklama, borc, alacak, bakiye, bakiye_turu, islem_tipi)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      hareketId,
+      mustahsil.cariId,
+      mustahsil.tarih,
+      `${mustahsil.makbuzNo} Nolu Müstahsil Makbuzu - ${mustahsil.urunAdi}`,
+      netTutar, // Borç olarak işle
+      0,
+      yeniMutlakBakiye,
+      yeniBakiyeTuru,
+      'MUSTAHSIL'
+    )
+    
+    // 3. Cari bakiyesini güncelle
+    db.prepare(`
+      UPDATE cariler SET bakiye = ?, bakiye_turu = ?, guncelleme_tarihi = datetime('now')
+      WHERE id = ?
+    `).run(yeniMutlakBakiye, yeniBakiyeTuru, mustahsil.cariId)
+  })
+  
+  transaction()
+  
+  return db.prepare('SELECT * FROM mustahsiller WHERE id = ?').get(id)
+})
+
+// Müstahsil sil
+ipcMain.handle('db:deleteMustahsil', async (_, id: string) => {
+  const db = getDatabase()
+  if (!db) return false
+  
+  db.prepare('DELETE FROM mustahsiller WHERE id = ?').run(id)
+  return true
+})
+
 export {}
 
