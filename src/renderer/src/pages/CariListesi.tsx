@@ -10,7 +10,9 @@ import {
   Trash2,
   Download,
   ArrowUpDown,
-  Loader2
+  Loader2,
+  X,
+  Check
 } from 'lucide-react'
 
 // Veritabanından gelen cari tipi
@@ -25,6 +27,24 @@ interface CariData {
   vergi_no?: string
   bakiye: number
   bakiye_turu: string
+}
+
+// Sıralama seçenekleri
+type SortField = 'kod' | 'unvan' | 'bakiye'
+type SortDirection = 'asc' | 'desc'
+
+// Filtre seçenekleri
+type FilterType = 'all' | 'borclu' | 'alacakli'
+
+// Form veri tipi
+interface CariFormData {
+  kod: string
+  unvan: string
+  yetkili: string
+  telefon: string
+  adres: string
+  vergiDairesi: string
+  vergiNo: string
 }
 
 const formatCurrency = (amount: number): string => {
@@ -43,6 +63,7 @@ interface AnimatedCariRowProps {
   setActiveMenu: (id: string | null) => void
   onViewEkstre: (id: string) => void
   onDelete: (id: string) => void
+  onEdit: (cari: CariData) => void
 }
 
 const AnimatedCariRow: React.FC<AnimatedCariRowProps> = ({ 
@@ -51,7 +72,8 @@ const AnimatedCariRow: React.FC<AnimatedCariRowProps> = ({
   activeMenu, 
   setActiveMenu, 
   onViewEkstre,
-  onDelete
+  onDelete,
+  onEdit
 }) => {
   const rowRef = useRef<HTMLTableRowElement>(null)
   const [isVisible, setIsVisible] = useState(false)
@@ -184,7 +206,7 @@ const AnimatedCariRow: React.FC<AnimatedCariRowProps> = ({
             <button
               onClick={(e) => {
                 e.stopPropagation()
-                // TODO: Edit modal
+                onEdit(cari)
               }}
               style={{
                 width: '100%',
@@ -250,6 +272,27 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
   const [cariler, setCariler] = useState<CariData[]>([])
   const [loading, setLoading] = useState(true)
   const [activeMenu, setActiveMenu] = useState<string | null>(null)
+  
+  // Modal states
+  const [showModal, setShowModal] = useState(false)
+  const [editingCari, setEditingCari] = useState<CariData | null>(null)
+  const [formData, setFormData] = useState<CariFormData>({
+    kod: '',
+    unvan: '',
+    yetkili: '',
+    telefon: '',
+    adres: '',
+    vergiDairesi: '',
+    vergiNo: ''
+  })
+  const [formLoading, setFormLoading] = useState(false)
+  
+  // Filter & Sort states
+  const [localFilter, setLocalFilter] = useState<FilterType>('all')
+  const [sortField, setSortField] = useState<SortField>('kod')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+  const [showFilterDropdown, setShowFilterDropdown] = useState(false)
+  const [showSortDropdown, setShowSortDropdown] = useState(false)
 
   // Veritabanından carileri çek
   useEffect(() => {
@@ -268,22 +311,143 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
 
   // Close menu when clicking outside
   useEffect(() => {
-    if (activeMenu) {
-      const handleClickOutside = () => setActiveMenu(null)
+    if (activeMenu || showFilterDropdown || showSortDropdown) {
+      const handleClickOutside = () => {
+        setActiveMenu(null)
+        setShowFilterDropdown(false)
+        setShowSortDropdown(false)
+      }
       document.addEventListener('click', handleClickOutside)
       return () => document.removeEventListener('click', handleClickOutside)
     }
     return undefined
-  }, [activeMenu])
+  }, [activeMenu, showFilterDropdown, showSortDropdown])
+
+  // Modal açma/kapatma
+  const openNewCariModal = () => {
+    setEditingCari(null)
+    setFormData({
+      kod: '',
+      unvan: '',
+      yetkili: '',
+      telefon: '',
+      adres: '',
+      vergiDairesi: '',
+      vergiNo: ''
+    })
+    setShowModal(true)
+  }
+
+  const openEditCariModal = (cari: CariData) => {
+    setEditingCari(cari)
+    setFormData({
+      kod: cari.kod,
+      unvan: cari.unvan,
+      yetkili: cari.yetkili || '',
+      telefon: cari.telefon || '',
+      adres: cari.adres || '',
+      vergiDairesi: cari.vergi_dairesi || '',
+      vergiNo: cari.vergi_no || ''
+    })
+    setShowModal(true)
+    setActiveMenu(null)
+  }
+
+  const closeModal = () => {
+    setShowModal(false)
+    setEditingCari(null)
+    setFormData({
+      kod: '',
+      unvan: '',
+      yetkili: '',
+      telefon: '',
+      adres: '',
+      vergiDairesi: '',
+      vergiNo: ''
+    })
+  }
+
+  // Form submit
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    if (!formData.kod || !formData.unvan) {
+      alert('Kod ve Ünvan alanları zorunludur!')
+      return
+    }
+    
+    setFormLoading(true)
+    
+    try {
+      if (editingCari) {
+        // Cari güncelle
+        await window.db.updateCari(editingCari.id, {
+          kod: formData.kod,
+          unvan: formData.unvan,
+          yetkili: formData.yetkili || undefined,
+          telefon: formData.telefon || undefined,
+          adres: formData.adres || undefined,
+          vergiDairesi: formData.vergiDairesi || undefined,
+          vergiNo: formData.vergiNo || undefined
+        })
+        
+        // State'i güncelle
+        setCariler(prev => prev.map(c => 
+          c.id === editingCari.id 
+            ? { 
+                ...c, 
+                kod: formData.kod,
+                unvan: formData.unvan,
+                yetkili: formData.yetkili || undefined,
+                telefon: formData.telefon || undefined,
+                adres: formData.adres || undefined,
+                vergi_dairesi: formData.vergiDairesi || undefined,
+                vergi_no: formData.vergiNo || undefined
+              }
+            : c
+        ))
+      } else {
+        // Yeni cari ekle
+        const newCari = await window.db.addCari({
+          kod: formData.kod,
+          unvan: formData.unvan,
+          yetkili: formData.yetkili || undefined,
+          telefon: formData.telefon || undefined,
+          adres: formData.adres || undefined,
+          vergiDairesi: formData.vergiDairesi || undefined,
+          vergiNo: formData.vergiNo || undefined
+        })
+        
+        // Yeni cariyi listeye ekle
+        const data = await window.db.getCariler()
+        setCariler(data)
+        console.log('Yeni cari eklendi:', newCari)
+      }
+      
+      closeModal()
+    } catch (error) {
+      console.error('Cari kaydedilemedi:', error)
+      alert('Cari kaydedilirken bir hata oluştu!')
+    } finally {
+      setFormLoading(false)
+    }
+  }
 
   // Filtre uygula
   const getFilteredCariler = () => {
     let result = cariler
 
-    // Bakiye türüne göre filtrele
+    // Props'tan gelen bakiye türüne göre filtrele
     if (filter === 'borclu') {
       result = result.filter(cari => cari.bakiye_turu === 'B')
     } else if (filter === 'alacakli') {
+      result = result.filter(cari => cari.bakiye_turu === 'A')
+    }
+    
+    // Dropdown'dan seçilen filtre
+    if (localFilter === 'borclu') {
+      result = result.filter(cari => cari.bakiye_turu === 'B')
+    } else if (localFilter === 'alacakli') {
       result = result.filter(cari => cari.bakiye_turu === 'A')
     }
 
@@ -295,6 +459,21 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
         cari.yetkili?.toLowerCase().includes(searchTerm.toLowerCase())
       )
     }
+    
+    // Sıralama uygula
+    result = [...result].sort((a, b) => {
+      let comparison = 0
+      
+      if (sortField === 'kod') {
+        comparison = a.kod.localeCompare(b.kod)
+      } else if (sortField === 'unvan') {
+        comparison = a.unvan.localeCompare(b.unvan)
+      } else if (sortField === 'bakiye') {
+        comparison = a.bakiye - b.bakiye
+      }
+      
+      return sortDirection === 'asc' ? comparison : -comparison
+    })
 
     return result
   }
@@ -336,6 +515,22 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
   const toplamAlacak = cariler
     .filter(c => c.bakiye_turu === 'A')
     .reduce((sum, c) => sum + c.bakiye, 0)
+  
+  // Filter label
+  const getFilterLabel = () => {
+    switch (localFilter) {
+      case 'borclu': return 'Borçlular'
+      case 'alacakli': return 'Alacaklılar'
+      default: return 'Tümü'
+    }
+  }
+  
+  // Sort label
+  const getSortLabel = () => {
+    const fieldLabel = sortField === 'kod' ? 'Kod' : sortField === 'unvan' ? 'Ünvan' : 'Bakiye'
+    const dirLabel = sortDirection === 'asc' ? '↑' : '↓'
+    return `${fieldLabel} ${dirLabel}`
+  }
 
   if (loading) {
     return (
@@ -372,7 +567,7 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
             <Download size={18} />
             Dışa Aktar
           </button>
-          <button className="btn btn-primary">
+          <button className="btn btn-primary" onClick={openNewCariModal}>
             <Plus size={18} />
             Yeni Cari
           </button>
@@ -390,13 +585,10 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
             marginBottom: 24 
           }}
         >
-          <div style={{
-            padding: 20,
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-            borderRadius: 12,
-            transition: 'all 0.3s ease'
-          }}>
+          <div 
+            onClick={() => setLocalFilter('all')}
+            className={`summary-card card-primary ${localFilter === 'all' ? 'active-all' : ''}`}
+          >
             <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>
               Toplam Cari
             </div>
@@ -404,12 +596,10 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
               {cariler.length}
             </div>
           </div>
-          <div style={{
-            padding: 20,
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-            borderRadius: 12
-          }}>
+          <div 
+            onClick={() => setLocalFilter('borclu')}
+            className={`summary-card card-danger ${localFilter === 'borclu' ? 'active-borclu' : ''}`}
+          >
             <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>
               Toplam Borçlu
             </div>
@@ -417,12 +607,10 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
               {formatCurrency(toplamBorc)}
             </div>
           </div>
-          <div style={{
-            padding: 20,
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-            borderRadius: 12
-          }}>
+          <div 
+            onClick={() => setLocalFilter('alacakli')}
+            className={`summary-card card-success ${localFilter === 'alacakli' ? 'active-alacakli' : ''}`}
+          >
             <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>
               Toplam Alacaklı
             </div>
@@ -440,7 +628,9 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
             justifyContent: 'space-between', 
             alignItems: 'center',
             marginBottom: 20,
-            animationDelay: '0.15s'
+            animationDelay: '0.15s',
+            position: 'relative',
+            zIndex: 50
           }}
         >
           <div className="search-box">
@@ -453,14 +643,223 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
             />
           </div>
           <div style={{ display: 'flex', gap: 12 }}>
-            <button className="btn btn-secondary" style={{ padding: '10px 16px' }}>
-              <Filter size={16} />
-              Filtrele
-            </button>
-            <button className="btn btn-secondary" style={{ padding: '10px 16px' }}>
-              <ArrowUpDown size={16} />
-              Sırala
-            </button>
+            {/* Filtrele Dropdown */}
+            <div style={{ position: 'relative' }}>
+              <button 
+                className="btn btn-secondary" 
+                style={{ padding: '10px 16px' }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowFilterDropdown(!showFilterDropdown)
+                  setShowSortDropdown(false)
+                }}
+              >
+                <Filter size={16} />
+                {getFilterLabel()}
+              </button>
+              {showFilterDropdown && (
+                <div style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '100%',
+                  marginTop: 8,
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 8,
+                  boxShadow: '0 8px 30px rgba(0, 0, 0, 0.4)',
+                  zIndex: 1000,
+                  minWidth: 140,
+                  animation: 'fadeIn 0.2s ease'
+                }}>
+                  <button
+                    onClick={() => { setLocalFilter('all'); setShowFilterDropdown(false) }}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      background: localFilter === 'all' ? 'var(--bg-card-hover)' : 'transparent',
+                      border: 'none',
+                      color: 'var(--text-primary)',
+                      fontSize: 14,
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    Tümü
+                    {localFilter === 'all' && <Check size={16} color="var(--accent-primary)" />}
+                  </button>
+                  <button
+                    onClick={() => { setLocalFilter('borclu'); setShowFilterDropdown(false) }}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      background: localFilter === 'borclu' ? 'var(--bg-card-hover)' : 'transparent',
+                      border: 'none',
+                      color: 'var(--accent-danger)',
+                      fontSize: 14,
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    Borçlular
+                    {localFilter === 'borclu' && <Check size={16} color="var(--accent-primary)" />}
+                  </button>
+                  <button
+                    onClick={() => { setLocalFilter('alacakli'); setShowFilterDropdown(false) }}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      background: localFilter === 'alacakli' ? 'var(--bg-card-hover)' : 'transparent',
+                      border: 'none',
+                      color: 'var(--accent-success)',
+                      fontSize: 14,
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    Alacaklılar
+                    {localFilter === 'alacakli' && <Check size={16} color="var(--accent-primary)" />}
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            {/* Sırala Dropdown */}
+            <div style={{ position: 'relative' }}>
+              <button 
+                className="btn btn-secondary" 
+                style={{ padding: '10px 16px' }}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowSortDropdown(!showSortDropdown)
+                  setShowFilterDropdown(false)
+                }}
+              >
+                <ArrowUpDown size={16} />
+                {getSortLabel()}
+              </button>
+              {showSortDropdown && (
+                <div style={{
+                  position: 'absolute',
+                  right: 0,
+                  top: '100%',
+                  marginTop: 8,
+                  background: 'var(--bg-card)',
+                  border: '1px solid var(--border-color)',
+                  borderRadius: 8,
+                  boxShadow: '0 8px 30px rgba(0, 0, 0, 0.4)',
+                  zIndex: 1000,
+                  minWidth: 160,
+                  animation: 'fadeIn 0.2s ease'
+                }}>
+                  <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--text-muted)', borderBottom: '1px solid var(--border-color)' }}>Sıralama Alanı</div>
+                  <button
+                    onClick={() => { setSortField('kod'); setShowSortDropdown(false) }}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      background: sortField === 'kod' ? 'var(--bg-card-hover)' : 'transparent',
+                      border: 'none',
+                      color: 'var(--text-primary)',
+                      fontSize: 14,
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    Kod
+                    {sortField === 'kod' && <Check size={16} color="var(--accent-primary)" />}
+                  </button>
+                  <button
+                    onClick={() => { setSortField('unvan'); setShowSortDropdown(false) }}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      background: sortField === 'unvan' ? 'var(--bg-card-hover)' : 'transparent',
+                      border: 'none',
+                      color: 'var(--text-primary)',
+                      fontSize: 14,
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    Ünvan
+                    {sortField === 'unvan' && <Check size={16} color="var(--accent-primary)" />}
+                  </button>
+                  <button
+                    onClick={() => { setSortField('bakiye'); setShowSortDropdown(false) }}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      background: sortField === 'bakiye' ? 'var(--bg-card-hover)' : 'transparent',
+                      border: 'none',
+                      color: 'var(--text-primary)',
+                      fontSize: 14,
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    Bakiye
+                    {sortField === 'bakiye' && <Check size={16} color="var(--accent-primary)" />}
+                  </button>
+                  <div style={{ padding: '8px 14px', fontSize: 12, color: 'var(--text-muted)', borderTop: '1px solid var(--border-color)', borderBottom: '1px solid var(--border-color)' }}>Yön</div>
+                  <button
+                    onClick={() => { setSortDirection('asc'); setShowSortDropdown(false) }}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      background: sortDirection === 'asc' ? 'var(--bg-card-hover)' : 'transparent',
+                      border: 'none',
+                      color: 'var(--text-primary)',
+                      fontSize: 14,
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    Artan ↑
+                    {sortDirection === 'asc' && <Check size={16} color="var(--accent-primary)" />}
+                  </button>
+                  <button
+                    onClick={() => { setSortDirection('desc'); setShowSortDropdown(false) }}
+                    style={{
+                      width: '100%',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      padding: '10px 14px',
+                      background: sortDirection === 'desc' ? 'var(--bg-card-hover)' : 'transparent',
+                      border: 'none',
+                      color: 'var(--text-primary)',
+                      fontSize: 14,
+                      cursor: 'pointer',
+                      textAlign: 'left'
+                    }}
+                  >
+                    Azalan ↓
+                    {sortDirection === 'desc' && <Check size={16} color="var(--accent-primary)" />}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -492,6 +891,7 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
                   setActiveMenu={setActiveMenu}
                   onViewEkstre={handleViewEkstre}
                   onDelete={handleDelete}
+                  onEdit={openEditCariModal}
                 />
               ))}
               {filteredCariler.length === 0 && !loading && (
@@ -507,6 +907,251 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
 
         <div style={{ height: 30 }} />
       </div>
+
+      {/* Cari Modal */}
+      {showModal && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 100,
+            animation: 'fadeIn 0.2s ease'
+          }}
+          onClick={closeModal}
+        >
+          <div
+            style={{
+              background: 'var(--bg-card)',
+              borderRadius: 16,
+              padding: 24,
+              width: '100%',
+              maxWidth: 500,
+              boxShadow: 'var(--shadow-lg)',
+              animation: 'slideUp 0.3s ease'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              marginBottom: 24
+            }}>
+              <h2 style={{ margin: 0, fontSize: 20, fontWeight: 600 }}>
+                {editingCari ? 'Cari Düzenle' : 'Yeni Cari Ekle'}
+              </h2>
+              <button
+                onClick={closeModal}
+                style={{
+                  background: 'transparent',
+                  border: 'none',
+                  color: 'var(--text-secondary)',
+                  cursor: 'pointer',
+                  padding: 8,
+                  borderRadius: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center'
+                }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit}>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: 6, fontSize: 14, color: 'var(--text-secondary)' }}>
+                    Kod *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.kod}
+                    onChange={(e) => setFormData({ ...formData, kod: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: 8,
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
+                      fontSize: 14
+                    }}
+                    placeholder="Örn: 0001"
+                    required
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: 6, fontSize: 14, color: 'var(--text-secondary)' }}>
+                    Ünvan *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.unvan}
+                    onChange={(e) => setFormData({ ...formData, unvan: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: 8,
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
+                      fontSize: 14
+                    }}
+                    placeholder="Firma veya kişi adı"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div style={{ marginTop: 16 }}>
+                <label style={{ display: 'block', marginBottom: 6, fontSize: 14, color: 'var(--text-secondary)' }}>
+                  Yetkili
+                </label>
+                <input
+                  type="text"
+                  value={formData.yetkili}
+                  onChange={(e) => setFormData({ ...formData, yetkili: e.target.value })}
+                  style={{
+                    width: '100%',
+                    padding: '10px 14px',
+                    border: '1px solid var(--border-color)',
+                    borderRadius: 8,
+                    background: 'var(--bg-primary)',
+                    color: 'var(--text-primary)',
+                    fontSize: 14
+                  }}
+                  placeholder="Yetkili kişi"
+                />
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: 6, fontSize: 14, color: 'var(--text-secondary)' }}>
+                    Telefon
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.telefon}
+                    onChange={(e) => setFormData({ ...formData, telefon: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: 8,
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
+                      fontSize: 14
+                    }}
+                    placeholder="0532 xxx xxxx"
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: 6, fontSize: 14, color: 'var(--text-secondary)' }}>
+                    Adres
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.adres}
+                    onChange={(e) => setFormData({ ...formData, adres: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: 8,
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
+                      fontSize: 14
+                    }}
+                    placeholder="Adres"
+                  />
+                </div>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginTop: 16 }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: 6, fontSize: 14, color: 'var(--text-secondary)' }}>
+                    Vergi Dairesi
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.vergiDairesi}
+                    onChange={(e) => setFormData({ ...formData, vergiDairesi: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: 8,
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
+                      fontSize: 14
+                    }}
+                    placeholder="Vergi dairesi"
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: 6, fontSize: 14, color: 'var(--text-secondary)' }}>
+                    Vergi No
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.vergiNo}
+                    onChange={(e) => setFormData({ ...formData, vergiNo: e.target.value })}
+                    style={{
+                      width: '100%',
+                      padding: '10px 14px',
+                      border: '1px solid var(--border-color)',
+                      borderRadius: 8,
+                      background: 'var(--bg-primary)',
+                      color: 'var(--text-primary)',
+                      fontSize: 14
+                    }}
+                    placeholder="Vergi numarası"
+                  />
+                </div>
+              </div>
+
+              <div style={{
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: 12,
+                marginTop: 24,
+                paddingTop: 16,
+                borderTop: '1px solid var(--border-color)'
+              }}>
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="btn btn-secondary"
+                  style={{ padding: '10px 20px' }}
+                >
+                  İptal
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  style={{ padding: '10px 20px' }}
+                  disabled={formLoading}
+                >
+                  {formLoading ? (
+                    <>
+                      <Loader2 className="animate-spin" size={16} />
+                      Kaydediliyor...
+                    </>
+                  ) : editingCari ? 'Güncelle' : 'Kaydet'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </>
   )
 }

@@ -169,3 +169,49 @@ code {
     display: none;
   }
 }
+
+/* Summary Cards Glow Effects */
+.summary-card {
+  padding: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+  position: relative;
+}
+
+.summary-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+}
+
+/* Primary (Default) Glow */
+.summary-card.card-primary:hover {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 20px rgba(99, 102, 241, 0.4), inset 0 0 20px rgba(99, 102, 241, 0.1);
+}
+
+.summary-card.active-all {
+  border-color: var(--accent-primary);
+}
+
+/* Danger (Red) Glow */
+.summary-card.card-danger:hover {
+  border-color: var(--accent-danger);
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.4), inset 0 0 20px rgba(239, 68, 68, 0.1);
+}
+
+.summary-card.active-borclu {
+  border-color: var(--accent-danger);
+}
+
+/* Success (Green) Glow */
+.summary-card.card-success:hover {
+  border-color: var(--accent-success);
+  box-shadow: 0 0 20px rgba(34, 197, 94, 0.4), inset 0 0 20px rgba(34, 197, 94, 0.1);
+}
+
+.summary-card.active-alacakli {
+  border-color: var(--accent-success);
+}
