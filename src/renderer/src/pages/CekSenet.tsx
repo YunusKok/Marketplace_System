@@ -14,7 +14,6 @@ import {
   Calendar,
   Building2,
   Clock,
-  CheckCircle2,
   Edit
 } from 'lucide-react'
 
