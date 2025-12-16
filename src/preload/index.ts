@@ -89,6 +89,31 @@ const dbAPI = {
   }) => ipcRenderer.invoke('db:addKasaIslem', islem),
   deleteKasaIslem: (id: string) => ipcRenderer.invoke('db:deleteKasaIslem', id),
   
+  // Çek/Senet işlemleri
+  getCekSenetler: () => ipcRenderer.invoke('db:getCekSenetler'),
+  getCekSenetOzet: () => ipcRenderer.invoke('db:getCekSenetOzet'),
+  addCekSenet: (cekSenet: {
+    cariId?: string
+    tip: 'CEK' | 'SENET'
+    numara?: string
+    banka?: string
+    vadeTarihi: string
+    tutar: number
+    durum?: string
+    aciklama?: string
+  }) => ipcRenderer.invoke('db:addCekSenet', cekSenet),
+  updateCekSenet: (id: string, cekSenet: Partial<{
+    cariId?: string
+    tip: 'CEK' | 'SENET'
+    numara?: string
+    banka?: string
+    vadeTarihi?: string
+    tutar?: number
+    durum?: string
+    aciklama?: string
+  }>) => ipcRenderer.invoke('db:updateCekSenet', id, cekSenet),
+  deleteCekSenet: (id: string) => ipcRenderer.invoke('db:deleteCekSenet', id),
+  
   // Auth
   login: (username: string, password: string) => 
     ipcRenderer.invoke('db:login', username, password)

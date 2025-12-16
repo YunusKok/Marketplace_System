@@ -108,6 +108,31 @@ interface KasaBakiyeData {
   odeme: number
 }
 
+// Çek/Senet tipi
+interface CekSenetData {
+  id: string
+  cari_id?: string
+  tip: 'CEK' | 'SENET'
+  numara?: string
+  banka?: string
+  vade_tarihi: string
+  tutar: number
+  durum: 'BEKLEMEDE' | 'TAHSIL_EDILDI' | 'IPTAL'
+  aciklama?: string
+  olusturma_tarihi?: string
+  cari_unvan?: string
+}
+
+// Çek/Senet özet tipi
+interface CekSenetOzetData {
+  toplamCek: number
+  toplamSenet: number
+  bekleyen: number
+  tahsilEdilen: number
+  bekleyenAdet: number
+  tahsilEdilenAdet: number
+}
+
 // Database API tipi
 interface DatabaseAPI {
   // Cari işlemleri
@@ -194,6 +219,31 @@ interface DatabaseAPI {
   }) => Promise<KasaIslemData | null>
   deleteKasaIslem: (id: string) => Promise<boolean>
   
+  // Çek/Senet işlemleri
+  getCekSenetler: () => Promise<CekSenetData[]>
+  getCekSenetOzet: () => Promise<CekSenetOzetData>
+  addCekSenet: (cekSenet: {
+    cariId?: string
+    tip: 'CEK' | 'SENET'
+    numara?: string
+    banka?: string
+    vadeTarihi: string
+    tutar: number
+    durum?: string
+    aciklama?: string
+  }) => Promise<CekSenetData | null>
+  updateCekSenet: (id: string, cekSenet: Partial<{
+    cariId?: string
+    tip: 'CEK' | 'SENET'
+    numara?: string
+    banka?: string
+    vadeTarihi?: string
+    tutar?: number
+    durum?: string
+    aciklama?: string
+  }>) => Promise<CekSenetData | null>
+  deleteCekSenet: (id: string) => Promise<boolean>
+  
   // Auth
   login: (username: string, password: string) => Promise<UserData | null>
 }
@@ -205,5 +255,4 @@ declare global {
   }
 }
 
-export { CariData, HareketData, FaturaData, MustahsilData, KasaIslemData, KasaBakiyeData, DashboardStats, ExportResult, UserData, DatabaseAPI }
-
+export { CariData, HareketData, FaturaData, MustahsilData, KasaIslemData, KasaBakiyeData, CekSenetData, CekSenetOzetData, DashboardStats, ExportResult, UserData, DatabaseAPI }

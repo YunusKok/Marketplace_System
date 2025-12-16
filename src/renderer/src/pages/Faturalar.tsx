@@ -50,12 +50,7 @@ const formatCurrency = (amount: number): string => {
 }
 
 const formatDate = (dateString: string): string => {
-  try {
-    const [day, month, year] = dateString.split('.')
-    return `${day}.${month}.${year}`
-  } catch {
-    return dateString
-  }
+  return dateString
 }
 
 const Faturalar: React.FC = () => {
@@ -91,6 +86,7 @@ const Faturalar: React.FC = () => {
         window.db.getFaturalar(),
         window.db.getCariler()
       ])
+      
       setFaturalar(faturalarData)
       setCariler(carilerData.map(c => ({ id: c.id, unvan: c.unvan, kod: c.kod })))
     } catch (error) {

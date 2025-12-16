@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { 
   Search, 
   Plus, 
@@ -268,6 +268,7 @@ interface CariListesiProps {
 
 const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchTerm, setSearchTerm] = useState('')
   const [cariler, setCariler] = useState<CariData[]>([])
   const [loading, setLoading] = useState(true)
@@ -293,6 +294,15 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
   const [showFilterDropdown, setShowFilterDropdown] = useState(false)
   const [showSortDropdown, setShowSortDropdown] = useState(false)
+
+  // Location state'den filtreyi al
+  useEffect(() => {
+    if (location.state && (location.state as any).filter) {
+      setLocalFilter((location.state as any).filter)
+      // State'i temizle ki sayfa yenilendiğinde kalmasın (opsiyonel)
+      window.history.replaceState({}, document.title)
+    }
+  }, [location])
 
   // Veritabanından carileri çek
   useEffect(() => {

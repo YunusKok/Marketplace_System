@@ -723,5 +723,130 @@ ipcMain.handle('db:deleteKasaIslem', async (_, id: string) => {
   return true
 })
 
+// ===================================
+// ÇEK/SENET İŞLEMLERİ
+// ===================================
+
+// Çek/Senetleri getir
+ipcMain.handle('db:getCekSenetler', async () => {
+  const db = getDatabase()
+  if (!db) return []
+  
+  return db.prepare(`
+    SELECT cs.*, c.unvan as cari_unvan 
+    FROM cek_senet cs 
+    LEFT JOIN cariler c ON cs.cari_id = c.id 
+    ORDER BY cs.vade_tarihi ASC
+  `).all()
+})
+
+// Çek/Senet özet istatistikleri
+ipcMain.handle('db:getCekSenetOzet', async () => {
+  const db = getDatabase()
+  if (!db) return { toplamCek: 0, toplamSenet: 0, bekleyen: 0, tahsilEdilen: 0, bekleyenAdet: 0, tahsilEdilenAdet: 0 }
+  
+  const toplamCek = db.prepare(`
+    SELECT COALESCE(SUM(tutar), 0) as total FROM cek_senet WHERE tip = 'CEK'
+  `).get() as { total: number }
+  
+  const toplamSenet = db.prepare(`
+    SELECT COALESCE(SUM(tutar), 0) as total FROM cek_senet WHERE tip = 'SENET'
+  `).get() as { total: number }
+  
+  const bekleyen = db.prepare(`
+    SELECT COALESCE(SUM(tutar), 0) as total, COUNT(*) as adet FROM cek_senet WHERE durum = 'BEKLEMEDE'
+  `).get() as { total: number; adet: number }
+  
+  const tahsilEdilen = db.prepare(`
+    SELECT COALESCE(SUM(tutar), 0) as total, COUNT(*) as adet FROM cek_senet WHERE durum = 'TAHSIL_EDILDI'
+  `).get() as { total: number; adet: number }
+  
+  return {
+    toplamCek: toplamCek.total,
+    toplamSenet: toplamSenet.total,
+    bekleyen: bekleyen.total,
+    tahsilEdilen: tahsilEdilen.total,
+    bekleyenAdet: bekleyen.adet,
+    tahsilEdilenAdet: tahsilEdilen.adet
+  }
+})
+
+// Çek/Senet ekle
+ipcMain.handle('db:addCekSenet', async (_, cekSenet: {
+  cariId?: string
+  tip: 'CEK' | 'SENET'
+  numara?: string
+  banka?: string
+  vadeTarihi: string
+  tutar: number
+  durum?: string
+  aciklama?: string
+}) => {
+  const db = getDatabase()
+  if (!db) return null
+  
+  const id = `cs${Date.now()}`
+  
+  db.prepare(`
+    INSERT INTO cek_senet (id, cari_id, tip, numara, banka, vade_tarihi, tutar, durum, aciklama)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    id,
+    cekSenet.cariId || null,
+    cekSenet.tip,
+    cekSenet.numara || '',
+    cekSenet.banka || '',
+    cekSenet.vadeTarihi,
+    cekSenet.tutar,
+    cekSenet.durum || 'BEKLEMEDE',
+    cekSenet.aciklama || ''
+  )
+  
+  return db.prepare('SELECT * FROM cek_senet WHERE id = ?').get(id)
+})
+
+// Çek/Senet güncelle
+ipcMain.handle('db:updateCekSenet', async (_, id: string, cekSenet: Partial<{
+  cariId?: string
+  tip: 'CEK' | 'SENET'
+  numara?: string
+  banka?: string
+  vadeTarihi?: string
+  tutar?: number
+  durum?: string
+  aciklama?: string
+}>) => {
+  const db = getDatabase()
+  if (!db) return null
+  
+  const updates: string[] = []
+  const values: (string | number | null)[] = []
+  
+  if (cekSenet.cariId !== undefined) { updates.push('cari_id = ?'); values.push(cekSenet.cariId || null) }
+  if (cekSenet.tip) { updates.push('tip = ?'); values.push(cekSenet.tip) }
+  if (cekSenet.numara !== undefined) { updates.push('numara = ?'); values.push(cekSenet.numara || '') }
+  if (cekSenet.banka !== undefined) { updates.push('banka = ?'); values.push(cekSenet.banka || '') }
+  if (cekSenet.vadeTarihi) { updates.push('vade_tarihi = ?'); values.push(cekSenet.vadeTarihi) }
+  if (cekSenet.tutar !== undefined) { updates.push('tutar = ?'); values.push(cekSenet.tutar) }
+  if (cekSenet.durum) { updates.push('durum = ?'); values.push(cekSenet.durum) }
+  if (cekSenet.aciklama !== undefined) { updates.push('aciklama = ?'); values.push(cekSenet.aciklama || '') }
+  
+  if (updates.length === 0) return db.prepare('SELECT * FROM cek_senet WHERE id = ?').get(id)
+  
+  values.push(id)
+  db.prepare(`UPDATE cek_senet SET ${updates.join(', ')} WHERE id = ?`).run(...values)
+  
+  return db.prepare('SELECT * FROM cek_senet WHERE id = ?').get(id)
+})
+
+// Çek/Senet sil
+ipcMain.handle('db:deleteCekSenet', async (_, id: string) => {
+  const db = getDatabase()
+  if (!db) return false
+  
+  db.prepare('DELETE FROM cek_senet WHERE id = ?').run(id)
+  return true
+})
+
 export {}
 
