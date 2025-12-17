@@ -322,7 +322,9 @@ a:hover {
    =================================== */
 .app-layout {
   display: flex;
-  min-height: 100vh;
+  height: 100vh; /* Full height */
+  width: 100vw;
+  overflow: hidden; /* Container itself shouldn't scroll */
 }
 
 /* ===================================
@@ -330,16 +332,15 @@ a:hover {
    =================================== */
 .sidebar {
   width: var(--sidebar-width);
-  height: 100vh;
-  position: fixed;
-  left: 0;
-  top: 0;
+  height: 100%; /* Fill parent */
+  flex-shrink: 0; /* Don't shrink */
   background: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
   transition: width var(--transition-normal);
   z-index: 100;
+  /* Removed position: fixed to respect flex flow */
 }
 
 .sidebar-header {
@@ -479,10 +480,13 @@ a:hover {
    MAIN CONTENT
    =================================== */
 .main-content {
-  flex: 1;
-  margin-left: var(--sidebar-width);
-  min-height: 100vh;
+  flex: 1; /* Take remaining space */
+  height: 100%; /* Full height of parent */
+  overflow-y: auto; /* Scroll internally */
+  overflow-x: hidden;
   background: var(--bg-primary);
+  position: relative;
+  /* Removed margin-left as flex handles positioning */
 }
 
 .page-header {
