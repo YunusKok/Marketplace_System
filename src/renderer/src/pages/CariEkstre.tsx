@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { 
   ArrowLeft, 
@@ -8,77 +8,43 @@ import {
   User,
   Phone,
   MapPin,
-  FileText
+  FileText,
+  Loader2,
+  AlertCircle,
+  X,
+  Search,
+  ChevronRight,
+  TrendingUp,
+  TrendingDown,
+  Users,
+  Building2
 } from 'lucide-react'
-import type { Cari, CariHareket } from '../types/types'
 
-// Demo data - Görüntüdeki Cari Defteri formatına uygun
-const demoCari: Cari = {
-  id: '0392',
-  kod: '0392',
-  unvan: 'ALİ ALTIN-AKSU',
-  yetkili: 'Ali Altın',
-  telefon: '0532 123 4567',
-  adres: 'Antalya Hali',
-  vergiDairesi: 'Antalya',
-  vergiNo: '1234567890',
-  bakiye: 1170720,
-  bakiyeTuru: 'A',
-  olusturmaTarihi: '2024-01-15',
-  guncellemeTarihi: '2025-12-03'
+// Database'den gelen veri tipleri
+interface CariData {
+  id: string
+  kod: string
+  unvan: string
+  yetkili?: string
+  telefon?: string
+  adres?: string
+  vergi_dairesi?: string
+  vergi_no?: string
+  bakiye: number
+  bakiye_turu: string
 }
 
-// Görüntüdeki verilere yakın demo hareketler
-const demoHareketler: CariHareket[] = [
-  { id: '1', cariId: '0392', tarih: '01.11.2025', aciklama: 'Devir', borc: 0, alacak: 50590, bakiye: 50590, bakiyeTuru: 'A', islemTipi: 'DIGER' },
-  { id: '2', cariId: '0392', tarih: '01.11.2025', aciklama: 'S1-SER', borc: 0, alacak: 125675, bakiye: 176265, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '3', cariId: '0392', tarih: '01.11.2025', aciklama: 'S2-SER', borc: 0, alacak: 63795, bakiye: 240060, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '4', cariId: '0392', tarih: '01.11.2025', aciklama: 'S3-SER', borc: 0, alacak: 31245, bakiye: 271275, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '5', cariId: '0392', tarih: '01.11.2025', aciklama: 'S4-SER', borc: 0, alacak: 0, bakiye: 271275, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '6', cariId: '0392', tarih: '01.11.2025', aciklama: 'HAVALE', borc: 120000, alacak: 0, bakiye: 151275, bakiyeTuru: 'A', islemTipi: 'HAVALE' },
-  { id: '7', cariId: '0392', tarih: '01.11.2025', aciklama: 'HAVALE', borc: 20000, alacak: 0, bakiye: 131275, bakiyeTuru: 'A', islemTipi: 'HAVALE' },
-  { id: '8', cariId: '0392', tarih: '06.11.2025', aciklama: 'S5-SER', borc: 0, alacak: 148360, bakiye: 279635, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '9', cariId: '0392', tarih: '06.11.2025', aciklama: 'S5-SER', borc: 0, alacak: 164295, bakiye: 443930, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '10', cariId: '0392', tarih: '06.11.2025', aciklama: 'S6-SER', borc: 0, alacak: 90465, bakiye: 534395, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '11', cariId: '0392', tarih: '06.11.2025', aciklama: 'S7-SER', borc: 0, alacak: 78450, bakiye: 612845, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '12', cariId: '0392', tarih: '08.11.2025', aciklama: 'S8-SER', borc: 0, alacak: 0, bakiye: 612845, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '13', cariId: '0392', tarih: '08.11.2025', aciklama: 'HAVALE', borc: 250000, alacak: 0, bakiye: 362845, bakiyeTuru: 'A', islemTipi: 'HAVALE' },
-  { id: '14', cariId: '0392', tarih: '08.11.2025', aciklama: 'ALİ ALTIN-ÖZGÜR KARATAŞ HAVALE', borc: 50000, alacak: 0, bakiye: 312845, bakiyeTuru: 'A', islemTipi: 'HAVALE' },
-  { id: '15', cariId: '0392', tarih: '08.11.2025', aciklama: 'ALİ ALTIN-ÖZGÜR KARATAŞ HAVALE', borc: 250000, alacak: 0, bakiye: 62845, bakiyeTuru: 'A', islemTipi: 'HAVALE' },
-  { id: '16', cariId: '0392', tarih: '15.11.2025', aciklama: '07/02/2026-0094880-KUVEYT ÇEK', borc: 63000, alacak: 0, bakiye: 155, bakiyeTuru: 'B', islemTipi: 'CEK' },
-  { id: '17', cariId: '0392', tarih: '15.11.2025', aciklama: '16/02/2026-6953224-TEB ÇEK', borc: 150000, alacak: 0, bakiye: 150155, bakiyeTuru: 'B', islemTipi: 'CEK' },
-  { id: '18', cariId: '0392', tarih: '15.11.2025', aciklama: '09/02/2026-21023508-AKBANK', borc: 100000, alacak: 0, bakiye: 250155, bakiyeTuru: 'B', islemTipi: 'CEK' },
-  { id: '19', cariId: '0392', tarih: '15.11.2025', aciklama: '09/02/2026-0041111-GARANTİ ÇEK', borc: 120000, alacak: 0, bakiye: 370155, bakiyeTuru: 'B', islemTipi: 'CEK' },
-  { id: '20', cariId: '0392', tarih: '15.11.2025', aciklama: '07/02/2026-H1-2772759-DENİZBANK ÇEK', borc: 200000, alacak: 0, bakiye: 570155, bakiyeTuru: 'B', islemTipi: 'CEK' },
-  { id: '21', cariId: '0392', tarih: '15.11.2025', aciklama: 'S9-SER', borc: 0, alacak: 271550, bakiye: 298605, bakiyeTuru: 'B', islemTipi: 'FATURA' },
-  { id: '22', cariId: '0392', tarih: '18.11.2025', aciklama: 'S10-SER', borc: 0, alacak: 105485, bakiye: 193120, bakiyeTuru: 'B', islemTipi: 'FATURA' },
-  { id: '23', cariId: '0392', tarih: '18.11.2025', aciklama: 'S11-SER', borc: 0, alacak: 189295, bakiye: 3825, bakiyeTuru: 'B', islemTipi: 'FATURA' },
-  { id: '24', cariId: '0392', tarih: '18.11.2025', aciklama: 'S12-SER', borc: 0, alacak: 152255, bakiye: 148430, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '25', cariId: '0392', tarih: '18.11.2025', aciklama: 'S13-SER', borc: 0, alacak: 116940, bakiye: 265370, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '26', cariId: '0392', tarih: '21.11.2025', aciklama: '05/02/2026-H4-2590652-DENİZBANK ÇEK', borc: 250000, alacak: 0, bakiye: 15370, bakiyeTuru: 'A', islemTipi: 'CEK' },
-  { id: '27', cariId: '0392', tarih: '21.11.2025', aciklama: '07/02/2026-6953931-TEB ÇEK', borc: 230000, alacak: 0, bakiye: 93830, bakiyeTuru: 'B', islemTipi: 'CEK' },
-  { id: '28', cariId: '0392', tarih: '21.11.2025', aciklama: 'HAVALE', borc: 0, alacak: 0, bakiye: 323630, bakiyeTuru: 'B', islemTipi: 'HAVALE' },
-  { id: '29', cariId: '0392', tarih: '21.11.2025', aciklama: 'ALİ ALTIN HAVALE', borc: 50000, alacak: 0, bakiye: 373630, bakiyeTuru: 'B', islemTipi: 'HAVALE' },
-  { id: '30', cariId: '0392', tarih: '21.11.2025', aciklama: 'S14-SER', borc: 0, alacak: 227985, bakiye: 145645, bakiyeTuru: 'B', islemTipi: 'FATURA' },
-  { id: '31', cariId: '0392', tarih: '22.11.2025', aciklama: 'S14-SER', borc: 0, alacak: 26235, bakiye: 119410, bakiyeTuru: 'B', islemTipi: 'FATURA' },
-  { id: '32', cariId: '0392', tarih: '22.11.2025', aciklama: 'S15-SER', borc: 0, alacak: 165375, bakiye: 45965, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '33', cariId: '0392', tarih: '22.11.2025', aciklama: 'S16-SER', borc: 0, alacak: 72305, bakiye: 118270, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '34', cariId: '0392', tarih: '22.11.2025', aciklama: 'S17-SER', borc: 0, alacak: 117115, bakiye: 235385, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '35', cariId: '0392', tarih: '22.11.2025', aciklama: 'S18-SER', borc: 0, alacak: 0, bakiye: 235385, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '36', cariId: '0392', tarih: '22.11.2025', aciklama: 'S19-SER', borc: 0, alacak: 155600, bakiye: 390985, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '37', cariId: '0392', tarih: '25.11.2025', aciklama: 'HAVALE-ÖZGÜR KARATAŞ', borc: 100000, alacak: 0, bakiye: 290985, bakiyeTuru: 'A', islemTipi: 'HAVALE' },
-  { id: '38', cariId: '0392', tarih: '28.11.2025', aciklama: 'HAVALE-ÖZGÜR KARATAŞ', borc: 400000, alacak: 0, bakiye: 109015, bakiyeTuru: 'B', islemTipi: 'HAVALE' },
-  { id: '39', cariId: '0392', tarih: '29.11.2025', aciklama: 'S20-SER', borc: 0, alacak: 252265, bakiye: 143250, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '40', cariId: '0392', tarih: '29.11.2025', aciklama: 'S21-SER', borc: 0, alacak: 316380, bakiye: 459630, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '41', cariId: '0392', tarih: '29.11.2025', aciklama: 'S21-SER', borc: 0, alacak: 268115, bakiye: 867745, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '42', cariId: '0392', tarih: '29.11.2025', aciklama: 'S22-SER', borc: 0, alacak: 268890, bakiye: 936435, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '43', cariId: '0392', tarih: '29.11.2025', aciklama: 'S23-SER', borc: 0, alacak: 231675, bakiye: 1168110, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '44', cariId: '0392', tarih: '29.11.2025', aciklama: 'S24-SER', borc: 0, alacak: 0, bakiye: 1168110, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '45', cariId: '0392', tarih: '29.11.2025', aciklama: 'HAVALE', borc: 200000, alacak: 0, bakiye: 968110, bakiyeTuru: 'A', islemTipi: 'HAVALE' },
-  { id: '46', cariId: '0392', tarih: '03.12.2025', aciklama: 'S25-SER', borc: 0, alacak: 223735, bakiye: 1191845, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '47', cariId: '0392', tarih: '03.12.2025', aciklama: 'S26-SER', borc: 0, alacak: 78875, bakiye: 1270720, bakiyeTuru: 'A', islemTipi: 'FATURA' },
-  { id: '48', cariId: '0392', tarih: '03.12.2025', aciklama: '17/03/2026-0036369-KUVEYT ÇEK', borc: 100000, alacak: 0, bakiye: 1170720, bakiyeTuru: 'A', islemTipi: 'CEK' },
-]
+interface HareketData {
+  id: string
+  cari_id: string
+  tarih: string
+  aciklama: string
+  borc: number
+  alacak: number
+  bakiye: number
+  bakiye_turu: string
+  islem_tipi: string
+}
 
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('tr-TR', {
@@ -88,21 +54,500 @@ const formatCurrency = (amount: number): string => {
   }).format(amount)
 }
 
+const formatDateForDisplay = (dateStr: string): string => {
+  // Convert from YYYY-MM-DD or DD.MM.YYYY to DD.MM.YYYY
+  if (dateStr.includes('-')) {
+    const [year, month, day] = dateStr.split('-')
+    return `${day}.${month}.${year}`
+  }
+  return dateStr
+}
+
+
+
+const parseDate = (dateStr: string): Date => {
+  // Parse date from either format
+  if (dateStr.includes('.')) {
+    const [day, month, year] = dateStr.split('.')
+    return new Date(parseInt(year), parseInt(month) - 1, parseInt(day))
+  }
+  return new Date(dateStr)
+}
+
 const CariEkstre: React.FC = () => {
   const { cariId } = useParams<{ cariId: string }>()
   const navigate = useNavigate()
-  const [dateRange] = useState({ start: '01.11.2025', end: '03.12.2025' })
+  
+  // State
+  const [cari, setCari] = useState<CariData | null>(null)
+  const [hareketler, setHareketler] = useState<HareketData[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [exporting, setExporting] = useState(false)
+  
+  // Selection Mode State
+  const [allCariler, setAllCariler] = useState<CariData[]>([])
+  const [searchTerm, setSearchTerm] = useState('')
+  
+  // Date range filter
+  const [showDateModal, setShowDateModal] = useState(false)
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [appliedStartDate, setAppliedStartDate] = useState('')
+  const [appliedEndDate, setAppliedEndDate] = useState('')
 
-  // Gerçek uygulamada cariId'ye göre veri çekilecek
-  // TODO: window.db.getCari(cariId) ve window.db.getHareketler(cariId) kullanılacak
-  console.log('Loading ekstre for cari:', cariId)
-  const cari = demoCari
-  const hareketler = demoHareketler
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true)
+      try {
+        if (!cariId) {
+          // Load list for selection
+          const carilerData = await window.db.getCariler()
+          setAllCariler(carilerData)
+          setLoading(false)
+          return
+        }
 
-  // Toplamları hesapla
-  const toplamBorc = hareketler.reduce((sum, h) => sum + h.borc, 0)
-  const toplamAlacak = hareketler.reduce((sum, h) => sum + h.alacak, 0)
-  const sonBakiye = hareketler[hareketler.length - 1]
+        setError(null)
+
+        // Cari bilgilerini getir
+        const cariData = await window.db.getCari(cariId)
+        if (!cariData) {
+          setError('Cari bulunamadı')
+          setLoading(false)
+          return
+        }
+        setCari(cariData)
+
+        // Hareketleri getir
+        const hareketlerData = await window.db.getHareketler(cariId)
+        setHareketler(hareketlerData || [])
+        
+        // Set initial date range (first and last hareket dates)
+        if (hareketlerData && hareketlerData.length > 0) {
+          const dates = hareketlerData.map(h => parseDate(h.tarih)).sort((a, b) => a.getTime() - b.getTime())
+          const firstDate = dates[0]
+          const lastDate = dates[dates.length - 1]
+          
+          const formatForInput = (d: Date) => {
+            const year = d.getFullYear()
+            const month = String(d.getMonth() + 1).padStart(2, '0')
+            const day = String(d.getDate()).padStart(2, '0')
+            return `${year}-${month}-${day}`
+          }
+          
+          setStartDate(formatForInput(firstDate))
+          setEndDate(formatForInput(lastDate))
+        }
+      } catch (err) {
+        console.error('Veri yüklenirken hata:', err)
+        setError('Veriler yüklenirken bir hata oluştu')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadData()
+  }, [cariId])
+
+  // Filtered Cariler for Selection Mode
+  const filteredCariler = useMemo(() => {
+    if (!searchTerm) return allCariler
+    const lower = searchTerm.toLowerCase()
+    return allCariler.filter(c => 
+      c.unvan.toLowerCase().includes(lower) || 
+      c.kod.toLowerCase().includes(lower)
+    )
+  }, [allCariler, searchTerm])
+
+  // ... (Rest of existing hooks)
+
+  // Filter hareketler by date range
+  const filteredHareketler = useMemo(() => {
+    if (!appliedStartDate && !appliedEndDate) {
+      return hareketler
+    }
+
+    return hareketler.filter(h => {
+      const hareketDate = parseDate(h.tarih)
+      
+      if (appliedStartDate) {
+        const start = new Date(appliedStartDate)
+        if (hareketDate < start) return false
+      }
+      
+      if (appliedEndDate) {
+        const end = new Date(appliedEndDate)
+        end.setHours(23, 59, 59, 999) // Include the entire end day
+        if (hareketDate > end) return false
+      }
+      
+      return true
+    })
+  }, [hareketler, appliedStartDate, appliedEndDate])
+
+  // Sort hareketler by date (oldest first for ekstre)
+  const sortedHareketler = useMemo(() => {
+    return [...filteredHareketler].sort((a, b) => {
+      const dateA = parseDate(a.tarih)
+      const dateB = parseDate(b.tarih)
+      return dateA.getTime() - dateB.getTime()
+    })
+  }, [filteredHareketler])
+
+  // Calculate totals
+  const toplamBorc = useMemo(() => {
+    return sortedHareketler.reduce((sum, h) => sum + h.borc, 0)
+  }, [sortedHareketler])
+
+  const toplamAlacak = useMemo(() => {
+    return sortedHareketler.reduce((sum, h) => sum + h.alacak, 0)
+  }, [sortedHareketler])
+
+  const sonBakiye = useMemo(() => {
+    if (sortedHareketler.length === 0) return null
+    return sortedHareketler[sortedHareketler.length - 1]
+  }, [sortedHareketler])
+
+  // Get date range for display
+  const dateRangeDisplay = useMemo(() => {
+    if (appliedStartDate && appliedEndDate) {
+      return `${formatDateForDisplay(appliedStartDate)} - ${formatDateForDisplay(appliedEndDate)}`
+    }
+    if (sortedHareketler.length > 0) {
+      const firstDate = sortedHareketler[0].tarih
+      const lastDate = sortedHareketler[sortedHareketler.length - 1].tarih
+      return `${formatDateForDisplay(firstDate)} - ${formatDateForDisplay(lastDate)}`
+    }
+    return 'Tarih Aralığı'
+  }, [appliedStartDate, appliedEndDate, sortedHareketler])
+
+  // Apply date filter
+  const applyDateFilter = () => {
+    setAppliedStartDate(startDate)
+    setAppliedEndDate(endDate)
+    setShowDateModal(false)
+  }
+
+  // Clear date filter
+  const clearDateFilter = () => {
+    setAppliedStartDate('')
+    setAppliedEndDate('')
+    setStartDate('')
+    setEndDate('')
+    setShowDateModal(false)
+  }
+
+  // Export to Excel
+  const handleExportExcel = async () => {
+    if (!cariId) return
+    
+    try {
+      setExporting(true)
+      const result = await window.db.exportCariEkstre(cariId)
+      
+      if (!result.success && result.error !== 'İptal edildi') {
+        alert(`Excel export hatası: ${result.error}`)
+      }
+    } catch (err) {
+      console.error('Excel export error:', err)
+      alert('Excel dosyası oluşturulurken bir hata oluştu')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  // Print
+  const handlePrint = () => {
+    window.print()
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="page-content" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <div style={{ textAlign: 'center' }}>
+          <Loader2 size={48} className="spin" style={{ color: 'var(--accent-primary)', marginBottom: 16 }} />
+          <p style={{ color: 'var(--text-secondary)' }}>Veriler yükleniyor...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // SELECTION INTERFACE (When no cariId)
+  if (!cariId) {
+    // Calculate summary stats
+    const toplamCari = allCariler.length
+    const borcluCari = allCariler.filter(c => c.bakiye_turu === 'B').length
+    const alacakliCari = allCariler.filter(c => c.bakiye_turu === 'A').length
+    const toplamBakiye = allCariler.reduce((sum, c) => {
+      return sum + (c.bakiye_turu === 'A' ? c.bakiye : -c.bakiye)
+    }, 0)
+
+    return (
+      <>
+        <div className="page-header">
+          <div className="page-title">
+            <h1>Cari Ekstre</h1>
+            <p>Hesap hareketlerini görüntülemek için bir cari seçin</p>
+          </div>
+        </div>
+
+        <div className="page-content" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 85px)' }}>
+          {/* Hero Section */}
+          <div style={{
+            background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.1) 50%, rgba(59, 130, 246, 0.05) 100%)',
+            borderRadius: 16,
+            padding: 32,
+            marginBottom: 32,
+            border: '1px solid rgba(99, 102, 241, 0.2)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            {/* Background decoration */}
+            <div style={{
+              position: 'absolute',
+              top: -50,
+              right: -50,
+              width: 200,
+              height: 200,
+              background: 'radial-gradient(circle, rgba(99, 102, 241, 0.2) 0%, transparent 70%)',
+              borderRadius: '50%'
+            }} />
+            <div style={{
+              position: 'absolute',
+              bottom: -30,
+              left: '30%',
+              width: 150,
+              height: 150,
+              background: 'radial-gradient(circle, rgba(139, 92, 246, 0.15) 0%, transparent 70%)',
+              borderRadius: '50%'
+            }} />
+            
+            <div style={{ position: 'relative', zIndex: 1 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 24 }}>
+                <div style={{
+                  width: 56,
+                  height: 56,
+                  background: 'var(--gradient-primary)',
+                  borderRadius: 14,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4)'
+                }}>
+                  <FileText size={28} color="white" />
+                </div>
+                <div>
+                  <h2 style={{ fontSize: 24, fontWeight: 700, marginBottom: 4 }}>Cari Hesap Ekstresi</h2>
+                  <p style={{ color: 'var(--text-secondary)', fontSize: 14 }}>Detaylı hesap hareketleri ve bakiye takibi</p>
+                </div>
+              </div>
+
+              {/* Stats Row */}
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16 }}>
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(10px)',
+                  borderRadius: 12,
+                  padding: 16,
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <Users size={16} color="var(--accent-primary)" />
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Toplam Cari</span>
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700 }}>{toplamCari}</div>
+                </div>
+
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(10px)',
+                  borderRadius: 12,
+                  padding: 16,
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <TrendingDown size={16} color="var(--accent-danger)" />
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Borçlu</span>
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-danger)' }}>{borcluCari}</div>
+                </div>
+
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(10px)',
+                  borderRadius: 12,
+                  padding: 16,
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <TrendingUp size={16} color="var(--accent-success)" />
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Alacaklı</span>
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-success)' }}>{alacakliCari}</div>
+                </div>
+
+                <div style={{
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(10px)',
+                  borderRadius: 12,
+                  padding: 16,
+                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <Building2 size={16} color="var(--accent-warning)" />
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Net Bakiye</span>
+                  </div>
+                  <div style={{ 
+                    fontSize: 20, 
+                    fontWeight: 700, 
+                    color: toplamBakiye >= 0 ? 'var(--accent-success)' : 'var(--accent-danger)'
+                  }}>
+                    {formatCurrency(Math.abs(toplamBakiye))} {toplamBakiye >= 0 ? 'A' : 'B'}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Search Section */}
+          <div style={{ marginBottom: 24 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h3 style={{ fontSize: 18, fontWeight: 600 }}>Cari Seçimi</h3>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+                {filteredCariler.length} sonuç gösteriliyor
+              </span>
+            </div>
+            <div className="search-box" style={{ width: '100%' }}>
+              <Search />
+              <input
+                type="text"
+                placeholder="Cari ara... (Kod veya Ünvan)"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                style={{ padding: '14px 14px 14px 48px', fontSize: 15 }}
+                autoFocus
+              />
+            </div>
+          </div>
+
+          {/* Grid List */}
+          <div style={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', 
+            gap: 20 
+          }}>
+            {filteredCariler.map((c, index) => (
+              <div 
+                key={c.id}
+                onClick={() => navigate(`/ekstre/${c.id}`)}
+                className={`summary-card ${c.bakiye_turu === 'A' ? 'card-success' : 'card-danger'}`}
+                style={{ 
+                  cursor: 'pointer',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  justifyContent: 'space-between',
+                  minHeight: 140,
+                  animation: `fadeInUp 0.4s ease ${index * 0.03}s both`
+                }}
+              >
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <span style={{ 
+                      fontSize: 12, 
+                      color: 'var(--accent-primary)', 
+                      fontWeight: 600,
+                      background: 'rgba(99, 102, 241, 0.1)',
+                      padding: '4px 8px',
+                      borderRadius: 6
+                    }}>
+                      {c.kod}
+                    </span>
+                    {c.bakiye_turu === 'A' ? (
+                      <TrendingUp size={16} color="var(--accent-success)" />
+                    ) : (
+                      <TrendingDown size={16} color="var(--accent-danger)" />
+                    )}
+                  </div>
+                  <div style={{ fontWeight: 600, fontSize: 17, marginBottom: 6, lineHeight: 1.3 }}>
+                    {c.unvan}
+                  </div>
+                  {(c.yetkili || c.telefon) && (
+                    <div style={{ fontSize: 13, color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 8 }}>
+                      {c.yetkili && <span>{c.yetkili}</span>}
+                      {c.yetkili && c.telefon && <span style={{ opacity: 0.5 }}>•</span>}
+                      {c.telefon && <span>{c.telefon}</span>}
+                    </div>
+                  )}
+                </div>
+                
+                <div style={{ 
+                  marginTop: 16, 
+                  paddingTop: 16, 
+                  borderTop: '1px solid var(--border-color)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: 'var(--text-muted)', marginBottom: 2 }}>Bakiye</div>
+                    <span className={`bakiye-tag ${c.bakiye_turu === 'A' ? 'alacak' : 'borc'}`} style={{ fontSize: 14, padding: '6px 12px' }}>
+                      {formatCurrency(c.bakiye)} ₺
+                    </span>
+                  </div>
+                  <div style={{
+                    width: 36,
+                    height: 36,
+                    borderRadius: 8,
+                    background: 'var(--bg-secondary)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s ease'
+                  }}>
+                    <ChevronRight size={18} color="var(--text-muted)" />
+                  </div>
+                </div>
+              </div>
+            ))}
+            
+            {filteredCariler.length === 0 && (
+              <div style={{ 
+                gridColumn: '1/-1', 
+                textAlign: 'center', 
+                padding: 60, 
+                color: 'var(--text-secondary)',
+                background: 'var(--bg-card)',
+                borderRadius: 16,
+                border: '1px dashed var(--border-color)'
+              }}>
+                <Search size={56} style={{ marginBottom: 20, opacity: 0.3 }} />
+                <p style={{ fontSize: 16, fontWeight: 500, marginBottom: 8 }}>Sonuç Bulunamadı</p>
+                <p style={{ fontSize: 14, color: 'var(--text-muted)' }}>Aradığınız kriterlere uygun cari bulunamadı.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  // Error state logic (only if carId exists but fetch failed)
+  if (error || !cari) {
+    return (
+      <div className="page-content" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+        <div style={{ textAlign: 'center' }}>
+          <AlertCircle size={48} style={{ color: 'var(--accent-danger)', marginBottom: 16 }} />
+          <p style={{ color: 'var(--text-primary)', marginBottom: 16 }}>{error || 'Cari bulunamadı'}</p>
+          <button className="btn btn-secondary" onClick={() => navigate('/cariler')}>
+            <ArrowLeft size={18} />
+            Listeye Dön
+          </button>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <>
@@ -131,106 +576,245 @@ const CariEkstre: React.FC = () => {
           </div>
         </div>
         <div className="page-actions">
-          <button className="btn btn-secondary">
+          <button className="btn btn-secondary" onClick={() => setShowDateModal(true)}>
             <Calendar size={18} />
             Tarih Aralığı
           </button>
-          <button className="btn btn-secondary">
+          <button className="btn btn-secondary" onClick={handlePrint}>
             <Printer size={18} />
             Yazdır
           </button>
-          <button className="btn btn-primary">
-            <Download size={18} />
+          <button 
+            className="btn btn-primary" 
+            onClick={handleExportExcel}
+            disabled={exporting}
+          >
+            {exporting ? <Loader2 size={18} className="spin" /> : <Download size={18} />}
             Excel'e Aktar
           </button>
         </div>
       </div>
 
-      <div className="page-content">
-        {/* Cari Bilgi Kartı */}
-        <div className="ekstre-header">
-          <div className="ekstre-title">
-            <h2>CARİ DEFTERİ</h2>
-            <span>{dateRange.start} - {dateRange.end}</span>
+      <div className="page-content" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 85px)' }}>
+        {/* Summary Cards Row */}
+        <div style={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(4, 1fr)', 
+          gap: 20, 
+          marginBottom: 24 
+        }}>
+          <div className="stat-card card-primary" style={{ padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <div style={{
+                width: 44,
+                height: 44,
+                background: 'rgba(99, 102, 241, 0.15)',
+                borderRadius: 10,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <FileText size={22} color="var(--accent-primary)" />
+              </div>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>İşlem Sayısı</span>
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 700 }}>{sortedHareketler.length}</div>
           </div>
 
-          <div style={{ 
-            display: 'grid', 
-            gridTemplateColumns: 'repeat(4, 1fr)', 
-            gap: 24,
-            padding: '20px 0',
-            borderTop: '1px solid var(--border-color)',
-            marginTop: 20
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ 
-                width: 40, height: 40, 
-                background: 'rgba(99, 102, 241, 0.15)', 
-                borderRadius: 8,
+          <div className="stat-card card-danger" style={{ padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <div style={{
+                width: 44,
+                height: 44,
+                background: 'rgba(239, 68, 68, 0.15)',
+                borderRadius: 10,
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--accent-primary)'
+                justifyContent: 'center'
               }}>
-                <FileText size={20} />
+                <TrendingDown size={22} color="var(--accent-danger)" />
               </div>
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Cari Kodu</div>
-                <div style={{ fontSize: 15, fontWeight: 600 }}>{cari.kod}</div>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Toplam Borç</span>
+            </div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-danger)' }}>
+              {formatCurrency(toplamBorc)} ₺
+            </div>
+          </div>
+
+          <div className="stat-card card-success" style={{ padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <div style={{
+                width: 44,
+                height: 44,
+                background: 'rgba(34, 197, 94, 0.15)',
+                borderRadius: 10,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <TrendingUp size={22} color="var(--accent-success)" />
+              </div>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Toplam Alacak</span>
+            </div>
+            <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-success)' }}>
+              {formatCurrency(toplamAlacak)} ₺
+            </div>
+          </div>
+
+          <div className="stat-card card-warning" style={{ padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+              <div style={{
+                width: 44,
+                height: 44,
+                background: sonBakiye?.bakiye_turu === 'A' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                borderRadius: 10,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                {sonBakiye?.bakiye_turu === 'A' 
+                  ? <TrendingUp size={22} color="var(--accent-success)" />
+                  : <TrendingDown size={22} color="var(--accent-danger)" />
+                }
+              </div>
+              <span style={{ fontSize: 13, color: 'var(--text-secondary)' }}>Güncel Bakiye</span>
+            </div>
+            <div style={{ 
+              fontSize: 24, 
+              fontWeight: 700, 
+              color: sonBakiye?.bakiye_turu === 'A' ? 'var(--accent-success)' : 'var(--accent-danger)' 
+            }}>
+              {formatCurrency(sonBakiye?.bakiye || 0)} ₺
+              <span style={{ 
+                fontSize: 12, 
+                marginLeft: 6, 
+                padding: '2px 6px',
+                background: sonBakiye?.bakiye_turu === 'A' ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                borderRadius: 4
+              }}>
+                {sonBakiye?.bakiye_turu || '-'}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Cari Bilgi Kartı */}
+        <div style={{
+          background: 'linear-gradient(135deg, var(--bg-card) 0%, rgba(26, 26, 37, 0.8) 100%)',
+          borderRadius: 16,
+          padding: 24,
+          marginBottom: 24,
+          border: '1px solid var(--border-color)',
+          position: 'relative',
+          overflow: 'hidden'
+        }}>
+          {/* Background decoration */}
+          <div style={{
+            position: 'absolute',
+            top: -30,
+            right: -30,
+            width: 120,
+            height: 120,
+            background: 'radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%)',
+            borderRadius: '50%'
+          }} />
+          
+          <div style={{ position: 'relative', zIndex: 1 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{
+                  width: 48,
+                  height: 48,
+                  background: 'var(--gradient-primary)',
+                  borderRadius: 12,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  boxShadow: '0 4px 16px rgba(99, 102, 241, 0.3)'
+                }}>
+                  <User size={24} color="white" />
+                </div>
+                <div>
+                  <h2 style={{ fontSize: 20, fontWeight: 700, marginBottom: 2 }}>{cari.unvan}</h2>
+                  <span style={{ 
+                    fontSize: 13, 
+                    color: 'var(--accent-primary)', 
+                    fontWeight: 500,
+                    background: 'rgba(99, 102, 241, 0.1)',
+                    padding: '3px 8px',
+                    borderRadius: 6
+                  }}>
+                    {cari.kod}
+                  </span>
+                </div>
+              </div>
+              <div style={{ textAlign: 'right' }}>
+                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 4 }}>Dönem</div>
+                <div style={{ fontSize: 14, fontWeight: 600, color: 'var(--text-secondary)' }}>{dateRangeDisplay}</div>
               </div>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ 
-                width: 40, height: 40, 
-                background: 'rgba(34, 197, 94, 0.15)', 
-                borderRadius: 8,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--accent-success)'
-              }}>
-                <User size={20} />
+            <div style={{ 
+              display: 'grid', 
+              gridTemplateColumns: 'repeat(3, 1fr)', 
+              gap: 20,
+              paddingTop: 20,
+              borderTop: '1px solid var(--border-color)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ 
+                  width: 36, height: 36, 
+                  background: 'rgba(245, 158, 11, 0.15)', 
+                  borderRadius: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--accent-warning)'
+                }}>
+                  <Phone size={18} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Telefon</div>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>{cari.telefon || '-'}</div>
+                </div>
               </div>
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Ünvan</div>
-                <div style={{ fontSize: 15, fontWeight: 600 }}>{cari.unvan}</div>
-              </div>
-            </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ 
-                width: 40, height: 40, 
-                background: 'rgba(245, 158, 11, 0.15)', 
-                borderRadius: 8,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--accent-warning)'
-              }}>
-                <Phone size={20} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ 
+                  width: 36, height: 36, 
+                  background: 'rgba(59, 130, 246, 0.15)', 
+                  borderRadius: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'var(--accent-info)'
+                }}>
+                  <MapPin size={18} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Adres</div>
+                  <div style={{ fontSize: 14, fontWeight: 500, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {cari.adres || '-'}
+                  </div>
+                </div>
               </div>
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Telefon</div>
-                <div style={{ fontSize: 15, fontWeight: 600 }}>{cari.telefon}</div>
-              </div>
-            </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <div style={{ 
-                width: 40, height: 40, 
-                background: 'rgba(59, 130, 246, 0.15)', 
-                borderRadius: 8,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'var(--accent-info)'
-              }}>
-                <MapPin size={20} />
-              </div>
-              <div>
-                <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>Adres</div>
-                <div style={{ fontSize: 15, fontWeight: 600 }}>{cari.adres}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ 
+                  width: 36, height: 36, 
+                  background: 'rgba(139, 92, 246, 0.15)', 
+                  borderRadius: 8,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: '#8b5cf6'
+                }}>
+                  <Building2 size={18} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>Vergi Dairesi</div>
+                  <div style={{ fontSize: 14, fontWeight: 500 }}>{cari.vergi_dairesi || '-'}</div>
+                </div>
               </div>
             </div>
           </div>
@@ -238,94 +822,145 @@ const CariEkstre: React.FC = () => {
 
         {/* Ekstre Tablosu */}
         <div className="ekstre-table-wrapper">
-          <table className="ekstre-table">
-            <thead>
-              <tr>
-                <th style={{ width: 100 }}>Tarih</th>
-                <th>Açıklama</th>
-                <th style={{ textAlign: 'right', width: 140 }}>Borç</th>
-                <th style={{ textAlign: 'right', width: 140 }}>Alacak</th>
-                <th style={{ textAlign: 'right', width: 160 }}>Bakiye</th>
-              </tr>
-            </thead>
-            <tbody>
-              {hareketler.map((hareket) => (
-                <tr key={hareket.id}>
-                  <td style={{ fontWeight: 500 }}>{hareket.tarih}</td>
-                  <td>
-                    <span style={{ 
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 8
-                    }}>
-                      {hareket.islemTipi === 'CEK' && (
-                        <span style={{
-                          padding: '2px 6px',
-                          background: 'rgba(245, 158, 11, 0.15)',
-                          color: 'var(--accent-warning)',
-                          borderRadius: 4,
-                          fontSize: 10,
-                          fontWeight: 600
-                        }}>ÇEK</span>
+          {sortedHareketler.length === 0 ? (
+            <div style={{ 
+              padding: 48, 
+              textAlign: 'center', 
+              color: 'var(--text-muted)' 
+            }}>
+              <FileText size={48} style={{ marginBottom: 16, opacity: 0.5 }} />
+              <p>Bu cari için hareket kaydı bulunamadı.</p>
+            </div>
+          ) : (
+            <table className="ekstre-table">
+              <thead>
+                <tr>
+                  <th style={{ width: 100 }}>Tarih</th>
+                  <th>Açıklama</th>
+                  <th style={{ textAlign: 'right', width: 140 }}>Borç</th>
+                  <th style={{ textAlign: 'right', width: 140 }}>Alacak</th>
+                  <th style={{ textAlign: 'right', width: 160 }}>Bakiye</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedHareketler.map((hareket) => (
+                  <tr key={hareket.id}>
+                    <td style={{ fontWeight: 500 }}>{formatDateForDisplay(hareket.tarih)}</td>
+                    <td>
+                      <span style={{ 
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 8
+                      }}>
+                        {hareket.islem_tipi === 'CEK' && (
+                          <span style={{
+                            padding: '2px 6px',
+                            background: 'rgba(245, 158, 11, 0.15)',
+                            color: 'var(--accent-warning)',
+                            borderRadius: 4,
+                            fontSize: 10,
+                            fontWeight: 600
+                          }}>ÇEK</span>
+                        )}
+                        {hareket.islem_tipi === 'HAVALE' && (
+                          <span style={{
+                            padding: '2px 6px',
+                            background: 'rgba(34, 197, 94, 0.15)',
+                            color: 'var(--accent-success)',
+                            borderRadius: 4,
+                            fontSize: 10,
+                            fontWeight: 600
+                          }}>HAVALE</span>
+                        )}
+                        {hareket.islem_tipi === 'FATURA' && (
+                          <span style={{
+                            padding: '2px 6px',
+                            background: 'rgba(99, 102, 241, 0.15)',
+                            color: 'var(--accent-primary)',
+                            borderRadius: 4,
+                            fontSize: 10,
+                            fontWeight: 600
+                          }}>FATURA</span>
+                        )}
+                        {hareket.islem_tipi === 'TAHSILAT' && (
+                          <span style={{
+                            padding: '2px 6px',
+                            background: 'rgba(16, 185, 129, 0.15)',
+                            color: '#10b981',
+                            borderRadius: 4,
+                            fontSize: 10,
+                            fontWeight: 600
+                          }}>TAHSİLAT</span>
+                        )}
+                        {hareket.islem_tipi === 'ODEME' && (
+                          <span style={{
+                            padding: '2px 6px',
+                            background: 'rgba(239, 68, 68, 0.15)',
+                            color: '#ef4444',
+                            borderRadius: 4,
+                            fontSize: 10,
+                            fontWeight: 600
+                          }}>ÖDEME</span>
+                        )}
+                        {hareket.islem_tipi === 'MUSTAHSIL' && (
+                          <span style={{
+                            padding: '2px 6px',
+                            background: 'rgba(168, 85, 247, 0.15)',
+                            color: '#a855f7',
+                            borderRadius: 4,
+                            fontSize: 10,
+                            fontWeight: 600
+                          }}>MÜSTAHSİL</span>
+                        )}
+                        {hareket.aciklama}
+                      </span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      {hareket.borc > 0 ? (
+                        <span className="amount borc">{formatCurrency(hareket.borc)}</span>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)' }}>-</span>
                       )}
-                      {hareket.islemTipi === 'HAVALE' && (
-                        <span style={{
-                          padding: '2px 6px',
-                          background: 'rgba(34, 197, 94, 0.15)',
-                          color: 'var(--accent-success)',
-                          borderRadius: 4,
-                          fontSize: 10,
-                          fontWeight: 600
-                        }}>HAVALE</span>
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      {hareket.alacak > 0 ? (
+                        <span className="amount alacak">{formatCurrency(hareket.alacak)}</span>
+                      ) : (
+                        <span style={{ color: 'var(--text-muted)' }}>-</span>
                       )}
-                      {hareket.aciklama}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <span className={`bakiye-tag ${hareket.bakiye_turu === 'A' ? 'alacak' : 'borc'}`}>
+                        {formatCurrency(hareket.bakiye)} {hareket.bakiye_turu}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr>
+                  <td colSpan={2} style={{ fontWeight: 700 }}>
+                    Genel Toplam: {sortedHareketler.length} işlem
+                  </td>
+                  <td style={{ textAlign: 'right' }}>
+                    <span className="amount borc" style={{ fontWeight: 700 }}>
+                      {formatCurrency(toplamBorc)}
                     </span>
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    {hareket.borc > 0 ? (
-                      <span className="amount borc">{formatCurrency(hareket.borc)}</span>
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)' }}>-</span>
-                    )}
+                    <span className="amount alacak" style={{ fontWeight: 700 }}>
+                      {formatCurrency(toplamAlacak)}
+                    </span>
                   </td>
                   <td style={{ textAlign: 'right' }}>
-                    {hareket.alacak > 0 ? (
-                      <span className="amount alacak">{formatCurrency(hareket.alacak)}</span>
-                    ) : (
-                      <span style={{ color: 'var(--text-muted)' }}>-</span>
-                    )}
-                  </td>
-                  <td style={{ textAlign: 'right' }}>
-                    <span className={`bakiye-tag ${hareket.bakiyeTuru === 'A' ? 'alacak' : 'borc'}`}>
-                      {formatCurrency(hareket.bakiye)} {hareket.bakiyeTuru}
+                    <span className={`bakiye-tag ${sonBakiye?.bakiye_turu === 'A' ? 'alacak' : 'borc'}`} style={{ fontSize: 14, padding: '6px 12px' }}>
+                      {formatCurrency(sonBakiye?.bakiye || 0)} {sonBakiye?.bakiye_turu}
                     </span>
                   </td>
                 </tr>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr>
-                <td colSpan={2} style={{ fontWeight: 700 }}>
-                  Genel Toplam: {hareketler.length} işlem
-                </td>
-                <td style={{ textAlign: 'right' }}>
-                  <span className="amount borc" style={{ fontWeight: 700 }}>
-                    {formatCurrency(toplamBorc)}
-                  </span>
-                </td>
-                <td style={{ textAlign: 'right' }}>
-                  <span className="amount alacak" style={{ fontWeight: 700 }}>
-                    {formatCurrency(toplamAlacak)}
-                  </span>
-                </td>
-                <td style={{ textAlign: 'right' }}>
-                  <span className={`bakiye-tag ${sonBakiye?.bakiyeTuru === 'A' ? 'alacak' : 'borc'}`} style={{ fontSize: 14, padding: '6px 12px' }}>
-                    {formatCurrency(sonBakiye?.bakiye || 0)} {sonBakiye?.bakiyeTuru}
-                  </span>
-                </td>
-              </tr>
-            </tfoot>
-          </table>
+              </tfoot>
+            </table>
+          )}
         </div>
 
         {/* Footer Note */}
@@ -340,10 +975,52 @@ const CariEkstre: React.FC = () => {
           fontSize: 13,
           color: 'var(--text-secondary)'
         }}>
-          <span>Sayfa 1/1</span>
+          <span>Toplam {sortedHareketler.length} işlem</span>
           <span>Rapor Tarihi: {new Date().toLocaleDateString('tr-TR')}</span>
         </div>
       </div>
+
+      {/* Date Range Modal */}
+      {showDateModal && (
+        <div className="modal-overlay" onClick={() => setShowDateModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: 400 }}>
+            <div className="modal-header">
+              <h3>Tarih Aralığı Seç</h3>
+              <button className="modal-close" onClick={() => setShowDateModal(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Başlangıç Tarihi</label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="form-input"
+                />
+              </div>
+              <div className="form-group">
+                <label>Bitiş Tarihi</label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="form-input"
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={clearDateFilter}>
+                Filtreyi Temizle
+              </button>
+              <button className="btn btn-primary" onClick={applyDateFilter}>
+                Uygula
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }

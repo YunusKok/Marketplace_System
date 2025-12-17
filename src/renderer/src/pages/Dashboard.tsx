@@ -315,7 +315,7 @@ const Dashboard: React.FC = () => {
       <div className="page-content" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 85px)' }}>
         {/* Stats Grid */}
         <div className="stats-grid animate-fade-in">
-          <Link to="/cariler" state={{ filter: 'all' }} className="stat-card" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <Link to="/cariler" state={{ filter: 'all' }} className="stat-card card-primary" style={{ textDecoration: 'none', color: 'inherit' }}>
             <div className="stat-card-header">
               <div className="stat-card-icon primary">
                 <Users size={24} />
@@ -329,7 +329,7 @@ const Dashboard: React.FC = () => {
             </div>
           </Link>
 
-          <Link to="/cariler" state={{ filter: 'borclu' }} className="stat-card" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <Link to="/cariler" state={{ filter: 'borclu' }} className="stat-card card-danger" style={{ textDecoration: 'none', color: 'inherit' }}>
             <div className="stat-card-header">
               <div className="stat-card-icon danger">
                 <ArrowDownRight size={24} />
@@ -343,7 +343,7 @@ const Dashboard: React.FC = () => {
             </div>
           </Link>
 
-          <Link to="/cariler" state={{ filter: 'alacakli' }} className="stat-card" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <Link to="/cariler" state={{ filter: 'alacakli' }} className="stat-card card-success" style={{ textDecoration: 'none', color: 'inherit' }}>
             <div className="stat-card-header">
               <div className="stat-card-icon success">
                 <ArrowUpRight size={24} />
@@ -357,7 +357,7 @@ const Dashboard: React.FC = () => {
             </div>
           </Link>
 
-          <Link to="/kasa" className="stat-card" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <Link to="/kasa" className="stat-card card-warning" style={{ textDecoration: 'none', color: 'inherit' }}>
             <div className="stat-card-header">
               <div className="stat-card-icon warning">
                 <Wallet size={24} />
