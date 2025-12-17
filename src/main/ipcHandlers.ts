@@ -102,7 +102,7 @@ ipcMain.handle('db:deleteCari', async (_, id: string) => {
       console.log('Deleting related records for cari:', id)
       db.prepare('DELETE FROM hareketler WHERE cari_id = ?').run(id)
       db.prepare('DELETE FROM cek_senet WHERE cari_id = ?').run(id)
-      db.prepare('DELETE FROM faturalar WHERE cari_id = ?').run(id)
+
       db.prepare('DELETE FROM mustahsiller WHERE cari_id = ?').run(id)
       db.prepare('DELETE FROM kasa WHERE cari_id = ?').run(id)
       
@@ -350,12 +350,14 @@ ipcMain.handle('db:getDashboardStats', async () => {
   
   const toplamCari = db.prepare('SELECT COUNT(*) as count FROM cariler').get() as { count: number }
   
-  const toplamBorc = db.prepare(`
-    SELECT COALESCE(SUM(bakiye), 0) as total FROM cariler WHERE bakiye_turu = 'B'
-  `).get() as { total: number }
-  
-  const toplamAlacak = db.prepare(`
+  // Bakiye Türü 'A' = Cari bize borçlu = BİZİM ALACAĞIMIZ (asset/receivable)
+  const bizimAlacagimiz = db.prepare(`
     SELECT COALESCE(SUM(bakiye), 0) as total FROM cariler WHERE bakiye_turu = 'A'
+  `).get() as { total: number }
+
+  // Bakiye Türü 'B' = Biz cariye borçluyuz = BİZİM BORCUMUZ (liability)
+  const bizimBorcumuz = db.prepare(`
+    SELECT COALESCE(SUM(bakiye), 0) as total FROM cariler WHERE bakiye_turu = 'B'
   `).get() as { total: number }
   
   const sonHareketler = db.prepare(`
@@ -366,11 +368,12 @@ ipcMain.handle('db:getDashboardStats', async () => {
     LIMIT 15
   `).all()
   
+  // Net Bakiye: Alacağımız - Borcumuz (Pozitif = Biz alacaklıyız, Negatif = Biz borçluyuz)
   return {
     toplamCari: toplamCari.count,
-    toplamBorc: toplamBorc.total,
-    toplamAlacak: toplamAlacak.total,
-    netBakiye: toplamAlacak.total - toplamBorc.total,
+    toplamAlacak: bizimAlacagimiz.total,  // Bizim alacaklarımız (cariler 'A' bakiyeli)
+    toplamBorc: bizimBorcumuz.total,      // Bizim borçlarımız (cariler 'B' bakiyeli)
+    netBakiye: bizimAlacagimiz.total - bizimBorcumuz.total,
     sonHareketler
   }
 })
@@ -529,145 +532,7 @@ ipcMain.handle('db:login', async (_, username: string, password: string) => {
   return user || null
 })
 
-// ===================================
-// FATURA İŞLEMLERİ
-// ===================================
 
-// Faturaları getir
-ipcMain.handle('db:getFaturalar', async () => {
-  const db = getDatabase()
-  if (!db) return []
-  
-  return db.prepare(`
-    SELECT f.*, c.unvan as cari_unvan 
-    FROM faturalar f 
-    LEFT JOIN cariler c ON f.cari_id = c.id 
-    ORDER BY f.tarih DESC
-  `).all()
-})
-
-// Fatura ekle
-ipcMain.handle('db:addFatura', async (_, fatura: {
-  cariId: string
-  tarih: string
-  faturaNo: string
-  tutar: number
-  kdv: number
-  genelToplam: number
-  faturaTipi: 'ALIS' | 'SATIS'
-  aciklama?: string
-}) => {
-  const db = getDatabase()
-  if (!db) return null
-  
-  const id = `f${Date.now()}`
-  
-  // Transaction başlat
-  const transaction = db.transaction(() => {
-    // 1. Faturayı ekle
-    db.prepare(`
-      INSERT INTO faturalar (id, cari_id, fatura_no, tarih, toplam, kdv, genel_toplam, fatura_tipi, aciklama)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      id, 
-      fatura.cariId, 
-      fatura.faturaNo, 
-      fatura.tarih, 
-      fatura.tutar, 
-      fatura.kdv, 
-      fatura.genelToplam, 
-      fatura.faturaTipi, 
-      fatura.aciklama || ''
-    )
-
-    // 2. Hareketi ekle ve bakiyeyi güncelle
-    // Satış faturası -> Cari Borçlanır (Borç artar)
-    // Alış faturası -> Cari Alacaklanır (Alacak artar)
-    
-    let borc = 0
-    let alacak = 0
-    let islemTipi = 'FATURA'
-    
-    if (fatura.faturaTipi === 'SATIS') {
-      borc = fatura.genelToplam
-    } else {
-      alacak = fatura.genelToplam
-    }
-    
-    // Önceki bakiyeyi al
-    const sonHareket = db.prepare(`
-      SELECT bakiye, bakiye_turu FROM hareketler 
-      WHERE cari_id = ? ORDER BY olusturma_tarihi DESC LIMIT 1
-    `).get(fatura.cariId) as { bakiye: number; bakiye_turu: string } | undefined
-    
-    // let yeniBakiye = sonHareket?.bakiye || 0 // Unused variable removed
-    // let bakiyeTuru = sonHareket?.bakiye_turu || 'A' // Not used currently, logic below handles it
-    
-    // Bakiye hesapla (Standart: Alacak - Borç = Bakiye)
-    // Eğer Borç (Satış) ise bakiye azalır/negatife gider
-    // Eğer Alacak (Alış) ise bakiye artar/pozitife gider
-    // Ancak sistemde "Bakiye" mutlak değer ve "Bakiye Türü" (A/B) olarak tutuluyor.
-    // Mevcut mantık:
-    // Eğer Bakiye Türü A ise (+) bakiye
-    // Eğer Bakiye Türü B ise (-) bakiye
-    
-    let mevcutNetBakiye = 0
-    if (sonHareket) {
-      if (sonHareket.bakiye_turu === 'A') {
-        mevcutNetBakiye = sonHareket.bakiye
-      } else {
-        mevcutNetBakiye = -sonHareket.bakiye
-      }
-    }
-    
-    // Alacak (+) ekle, Borç (-) çıkar
-    const yeniNetBakiye = mevcutNetBakiye + alacak - borc
-    
-    let yeniBakiyeTuru = 'A'
-    let yeniMutlakBakiye = yeniNetBakiye
-    
-    if (yeniNetBakiye < 0) {
-      yeniBakiyeTuru = 'B'
-      yeniMutlakBakiye = Math.abs(yeniNetBakiye)
-    }
-    
-    const hareketId = `h${Date.now()}`
-    
-    db.prepare(`
-      INSERT INTO hareketler (id, cari_id, tarih, aciklama, borc, alacak, bakiye, bakiye_turu, islem_tipi)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      hareketId, 
-      fatura.cariId, 
-      fatura.tarih, 
-      `${fatura.faturaNo} Nolu ${fatura.faturaTipi === 'SATIS' ? 'Satış' : 'Alış'} Faturası`, 
-      borc, 
-      alacak, 
-      yeniMutlakBakiye, 
-      yeniBakiyeTuru, 
-      islemTipi
-    )
-    
-    // 3. Cari bakiyesini güncelle
-    db.prepare(`
-      UPDATE cariler SET bakiye = ?, bakiye_turu = ?, guncelleme_tarihi = datetime('now')
-      WHERE id = ?
-    `).run(yeniMutlakBakiye, yeniBakiyeTuru, fatura.cariId)
-  })
-  
-  transaction()
-  
-  return db.prepare('SELECT * FROM faturalar WHERE id = ?').get(id)
-})
-
-// Fatura sil (Sadece faturayı siler, hareketi ŞİMDİLİK silmez - Manuel düzeltme gerekir uyarısı verilebilir frontend'de)
-ipcMain.handle('db:deleteFatura', async (_, id: string) => {
-  const db = getDatabase()
-  if (!db) return false
-  
-  db.prepare('DELETE FROM faturalar WHERE id = ?').run(id)
-  return true
-})
 
 // ===================================
 // MÜSTAHSİL İŞLEMLERİ
@@ -1166,8 +1031,72 @@ ipcMain.handle('db:deleteCekSenet', async (_, id: string) => {
   const db = getDatabase()
   if (!db) return false
   
-  db.prepare('DELETE FROM cek_senet WHERE id = ?').run(id)
-  return true
+  try {
+    const transaction = db.transaction(() => {
+      // 1. Silinecek çek/senedi bul
+      const cekSenet = db.prepare('SELECT * FROM cek_senet WHERE id = ?').get(id) as any
+      if (!cekSenet) return
+
+      // 2. İlişkili hareketi bul ve sil
+      // Çek/Senet eklenirken hareket açıklaması şöyle oluşturuluyor:
+      // `${cekSenet.tip} (${yon}) - ${cekSenet.numara || ''} - Vade: ${cekSenet.vadeTarihi}`
+      // Ayrıca numara (belgeNo) üzerinden de eşleştirme yapılabilir ama en güvenilir yöntem
+      // hareketler tablosunda bu kaydı bulmak. Ancak şu an direkt bir link yok.
+      // Eşleştirme stratejisi: cari_id, tarih, islem_tipi ve tutar/bakiye kontrolü
+      
+      // NOT: En sağlıklı yöntem, hareket eklerken dönen hareket ID'sini çek/senet tablosuna kaydetmekti.
+      // Ancak mevcut yapıda bu yok. Bu yüzden açıklamadan veya tutardan bulmaya çalışacağız.
+      
+      // Alternatif: `addHareket` içinde `belgeNo` kaydediliyor mu? Evet (parametre olarak var ama DB'ye yazılmıyor gibi).
+      // `hareketler` tablosunda `aciklama` alanında numara geçiyor.
+      
+      const hareket = db.prepare(`
+        SELECT * FROM hareketler 
+        WHERE cari_id = ? AND islem_tipi IN ('CEK', 'SENET') AND aciklama LIKE ?
+      `).get(cekSenet.cari_id, `%${cekSenet.numara}%`) as any
+
+      if (hareket) {
+        console.log('İlişkili hareket bulundu, siliniyor:', hareket.id)
+        
+        // Hareketi sil (db:deleteHareket mantığını burada uyguluyoruz)
+        // Mevcut cari durumu
+        const cari = db.prepare('SELECT bakiye, bakiye_turu FROM cariler WHERE id = ?').get(hareket.cari_id) as any
+        let mevcutNetBakiye = cari.bakiye_turu === 'A' ? cari.bakiye : -cari.bakiye
+        
+        // Hareket silindiğinde: YeniNetBakiye = MevcutNetBakiye - Alacak + Borç
+        const yeniNetBakiye = mevcutNetBakiye - hareket.alacak + hareket.borc
+        
+        let bakiyeTuru = 'A'
+        let yeniMutlakBakiye = yeniNetBakiye
+        
+        if (yeniNetBakiye < 0) {
+          bakiyeTuru = 'B'
+          yeniMutlakBakiye = Math.abs(yeniNetBakiye)
+        }
+        
+        // Hareketi sil
+        db.prepare('DELETE FROM hareketler WHERE id = ?').run(hareket.id)
+        
+        // Cariyi güncelle
+        db.prepare(`
+          UPDATE cariler SET bakiye = ?, bakiye_turu = ?, guncelleme_tarihi = datetime('now')
+          WHERE id = ?
+        `).run(yeniMutlakBakiye, bakiyeTuru, hareket.cari_id)
+      } else {
+        console.warn('Çek/Senet silinirken ilişkili hareket bulunamadı:', id)
+      }
+
+      // 3. Çek/Senedi sil
+      db.prepare('DELETE FROM cek_senet WHERE id = ?').run(id)
+    })
+    
+    transaction()
+    console.log('Çek/Senet başarıyla silindi:', id)
+    return true
+  } catch (error) {
+    console.error('Çek/Senet silme hatası:', error)
+    return false
+  }
 })
 
 // ===================================

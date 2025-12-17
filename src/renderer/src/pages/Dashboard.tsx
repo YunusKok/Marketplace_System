@@ -223,6 +223,7 @@ const AnimatedRow: React.FC<AnimatedRowProps> = ({ hareket, index, onRowClick })
         ) : '-'}
       </td>
       <td style={{ textAlign: 'right' }}>
+        {/* A = bize borçlu (alacağımız, yeşil), B = bize alacaklı (borcumuz, kırmızı) */}
         <span className={`bakiye-tag ${hareket.bakiye_turu === 'A' ? 'alacak' : 'borc'}`}>
           {formatCurrency(hareket.bakiye)} {hareket.bakiye_turu}
         </span>
@@ -329,42 +330,46 @@ const Dashboard: React.FC = () => {
             </div>
           </Link>
 
-          <Link to="/cariler" state={{ filter: 'borclu' }} className="stat-card card-danger" style={{ textDecoration: 'none', color: 'inherit' }}>
-            <div className="stat-card-header">
-              <div className="stat-card-icon danger">
-                <ArrowDownRight size={24} />
-              </div>
-            </div>
-            <div className="stat-card-value">{formatCurrency(stats?.toplamBorc || 0)}</div>
-            <div className="stat-card-label">Toplam Borç</div>
-            <div className="stat-card-trend down">
-              <TrendingDown size={14} />
-              <span>Borçlu cariler</span>
-            </div>
-          </Link>
-
-          <Link to="/cariler" state={{ filter: 'alacakli' }} className="stat-card card-success" style={{ textDecoration: 'none', color: 'inherit' }}>
+          {/* A = Cari bize borçlu = Bizim alacağımız (yeşil) */}
+          <Link to="/cariler" state={{ filter: 'borclu' }} className="stat-card card-success" style={{ textDecoration: 'none', color: 'inherit' }}>
             <div className="stat-card-header">
               <div className="stat-card-icon success">
                 <ArrowUpRight size={24} />
               </div>
             </div>
             <div className="stat-card-value">{formatCurrency(stats?.toplamAlacak || 0)}</div>
-            <div className="stat-card-label">Toplam Alacak</div>
+            <div className="stat-card-label">Bizim Alacaklarımız</div>
             <div className="stat-card-trend up">
               <TrendingUp size={14} />
-              <span>Alacaklı cariler</span>
+              <span>Bize borçlu cariler (A)</span>
             </div>
           </Link>
 
-          <Link to="/kasa" className="stat-card card-warning" style={{ textDecoration: 'none', color: 'inherit' }}>
+          {/* B = Biz cariye borçluyuz = Bizim borcumuz (kırmızı) */}
+          <Link to="/cariler" state={{ filter: 'alacakli' }} className="stat-card card-danger" style={{ textDecoration: 'none', color: 'inherit' }}>
             <div className="stat-card-header">
-              <div className="stat-card-icon warning">
+              <div className="stat-card-icon danger">
+                <ArrowDownRight size={24} />
+              </div>
+            </div>
+            <div className="stat-card-value">{formatCurrency(stats?.toplamBorc || 0)}</div>
+            <div className="stat-card-label">Bizim Borçlarımız</div>
+            <div className="stat-card-trend down">
+              <TrendingDown size={14} />
+              <span>Bize alacaklı cariler (B)</span>
+            </div>
+          </Link>
+
+          <Link to="/kasa" className={`stat-card ${(stats?.netBakiye || 0) >= 0 ? 'card-success' : 'card-danger'}`} style={{ textDecoration: 'none', color: 'inherit' }}>
+            <div className="stat-card-header">
+              <div className={`stat-card-icon ${(stats?.netBakiye || 0) >= 0 ? 'success' : 'danger'}`}>
                 <Wallet size={24} />
               </div>
             </div>
-            <div className="stat-card-value">{formatCurrency(stats?.netBakiye || 0)}</div>
-            <div className="stat-card-label">Net Bakiye</div>
+            <div className="stat-card-value">{formatCurrency(Math.abs(stats?.netBakiye || 0))}</div>
+            <div className="stat-card-label">
+              Net Bakiye {(stats?.netBakiye || 0) >= 0 ? '(Alacaklıyız)' : '(Borçluyuz)'}
+            </div>
           </Link>
         </div>
 

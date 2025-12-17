@@ -129,14 +129,16 @@ const Raporlar: React.FC = () => {
     try {
       switch (reportId) {
         case 'borclu': {
+          // A = Cari bize borçlu = BİZİM ALACAĞIMIZ
           const cariler = await window.db.getCariler()
-          const borcluCariler = cariler.filter(c => c.bakiye_turu === 'B' && c.bakiye > 0)
+          const borcluCariler = cariler.filter(c => c.bakiye_turu === 'A' && c.bakiye > 0)
           setModalData({ borcluCariler })
           break
         }
         case 'alacakli': {
+          // B = Biz cariye borçluyuz = BİZİM BORCUMUZ
           const cariler = await window.db.getCariler()
-          const alacakliCariler = cariler.filter(c => c.bakiye_turu === 'A' && c.bakiye > 0)
+          const alacakliCariler = cariler.filter(c => c.bakiye_turu === 'B' && c.bakiye > 0)
           setModalData({ alacakliCariler })
           break
         }
@@ -193,19 +195,19 @@ const Raporlar: React.FC = () => {
   const raporlar = [
     { 
       id: 'borclu', 
-      title: 'Borçlu Cariler', 
-      desc: 'Sizden alacağınız olan cariler', 
-      icon: TrendingDown, 
-      color: 'var(--accent-danger)',
-      bg: 'rgba(239, 68, 68, 0.15)'
-    },
-    { 
-      id: 'alacakli', 
-      title: 'Alacaklı Cariler', 
-      desc: 'Size borçlu olan cariler', 
+      title: 'Alacaklarımız', 
+      desc: 'Bize borçlu olan cariler (A bakiyeli)', 
       icon: TrendingUp, 
       color: 'var(--accent-success)',
       bg: 'rgba(16, 185, 129, 0.15)'
+    },
+    { 
+      id: 'alacakli', 
+      title: 'Borçlarımız', 
+      desc: 'Bize alacaklı cariler (B bakiyeli)', 
+      icon: TrendingDown, 
+      color: 'var(--accent-danger)',
+      bg: 'rgba(239, 68, 68, 0.15)'
     },
     { 
       id: 'vade', 
@@ -280,10 +282,10 @@ const Raporlar: React.FC = () => {
             </div>
           </Link>
 
-          <Link to="/cariler" state={{ filter: 'borclu' }} className="summary-card card-danger" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <Link to="/cariler" state={{ filter: 'alacakli' }} className="summary-card card-danger" style={{ textDecoration: 'none', color: 'inherit' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>Toplam Borç</div>
+                <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>Bizim Borçlarımız</div>
                 <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-danger)' }}>
                   {formatCurrency(stats?.toplamBorc || 0)}
                 </div>
@@ -298,10 +300,10 @@ const Raporlar: React.FC = () => {
             </div>
           </Link>
 
-          <Link to="/cariler" state={{ filter: 'alacakli' }} className="summary-card card-success" style={{ textDecoration: 'none', color: 'inherit' }}>
+          <Link to="/cariler" state={{ filter: 'borclu' }} className="summary-card card-success" style={{ textDecoration: 'none', color: 'inherit' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <div>
-                <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>Toplam Alacak</div>
+                <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>Bizim Alacaklarımız</div>
                 <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-success)' }}>
                   {formatCurrency(stats?.toplamAlacak || 0)}
                 </div>
@@ -420,7 +422,7 @@ const Raporlar: React.FC = () => {
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: 700, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
             <div className="modal-header">
-              <h3><TrendingDown size={20} color="var(--accent-danger)" /> Borçlu Cariler</h3>
+              <h3><TrendingUp size={20} color="var(--accent-success)" /> Alacaklarımız (Bize Borçlu Cariler)</h3>
               <button className="modal-close" onClick={() => setActiveModal(null)}><X size={20} /></button>
             </div>
             <div className="modal-body" style={{ overflowY: 'auto', flex: 1 }}>
@@ -442,7 +444,7 @@ const Raporlar: React.FC = () => {
                       <tr key={cari.id}>
                         <td>{cari.kod}</td>
                         <td>{cari.unvan}</td>
-                        <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--accent-danger)' }}>
+                        <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--accent-success)' }}>
                           {formatCurrency(cari.bakiye)}
                         </td>
                       </tr>
@@ -466,7 +468,7 @@ const Raporlar: React.FC = () => {
         <div className="modal-overlay">
           <div className="modal-content" style={{ maxWidth: 700, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
             <div className="modal-header">
-              <h3><TrendingUp size={20} color="var(--accent-success)" /> Alacaklı Cariler</h3>
+              <h3><TrendingDown size={20} color="var(--accent-danger)" /> Borçlarımız (Bizden Alacaklı Cariler)</h3>
               <button className="modal-close" onClick={() => setActiveModal(null)}><X size={20} /></button>
             </div>
             <div className="modal-body" style={{ overflowY: 'auto', flex: 1 }}>
@@ -488,7 +490,7 @@ const Raporlar: React.FC = () => {
                       <tr key={cari.id}>
                         <td>{cari.kod}</td>
                         <td>{cari.unvan}</td>
-                        <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--accent-success)' }}>
+                        <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--accent-danger)' }}>
                           {formatCurrency(cari.bakiye)}
                         </td>
                       </tr>

@@ -9,7 +9,7 @@ import {
   Wallet,
   Trash2,
   FileText,
-
+  Printer
 } from 'lucide-react'
 import { useNavigate, useLocation } from 'react-router-dom'
 
@@ -45,7 +45,7 @@ const formatCurrency = (amount: number): string => {
   }).format(amount)
 }
 
-const Mustahsil: React.FC = () => {
+const SatisFirmalari: React.FC = () => {
   const navigate = useNavigate()
   const location = useLocation()
   
@@ -67,21 +67,21 @@ const Mustahsil: React.FC = () => {
     new Date().toLocaleDateString('tr-TR')
   )
   
-  // Mal İşlemi Form - SADECE ALIŞ (Mal Girişi/Tedarik)
+  // Mal İşlemi Form - SADECE SATIŞ (Mal Çıkışı/Müşteriye)
   const [malForm, setMalForm] = useState({
-    tip: 'ALIS', // Sadece ALIS (Alacaklandır)
+    tip: 'SATIS', // Sadece SATIS (Borçlandır)
     tarih: new Date().toLocaleDateString('tr-TR'),
     partiNo: '',
     urunAdi: '',
     miktar: '',
 
-    // birimFiyat: '', (YENİ: Tutar manuel girilecek, birim fiyat hesaplanacak veya boş geçilecek)
+    // birimFiyat: '', (YENİ: Tutar manuel girilecek)
     tutar: ''
   })
   
-  // Finansal İşlem Form - SADECE ÖDEME (Biz ödüyoruz)
+  // Finansal İşlem Form - SADECE TAHSİLAT (Müşteriden Para Al)
   const [finansForm, setFinansForm] = useState({
-    tip: 'ODEME', // Sadece ODEME (Borçlandır)
+    tip: 'TAHSILAT', // Sadece TAHSILAT (Alacaklandır)
     tarih: new Date().toLocaleDateString('tr-TR'),
     odemeTuru: 'NAKIT' as 'NAKIT' | 'HAVALE' | 'CEK' | 'SENET',
     tutar: '',
@@ -114,9 +114,10 @@ const Mustahsil: React.FC = () => {
   const loadCariler = async () => {
     try {
       const data = await window.db.getCariler()
-      // SADECE MUSTAHSIL OLANLARI FİLTRELE
+      // SADECE FİRMA OLANLARI FİLTRELE
+      // Not: 'DIGER' tiplerini de dahil edebiliriz veya sadece 'FIRMA'. Kullanıcı "Satış Firmaları" dedi.
       const filtered = data
-        .filter(c => c.tip === 'MUSTAHSIL')
+        .filter(c => c.tip === 'FIRMA')
         .map(c => ({ 
           id: c.id, 
           unvan: c.unvan, 
@@ -145,6 +146,7 @@ const Mustahsil: React.FC = () => {
     }
   }
 
+  // Hesaplanan tutar (Mal işlemi için)
   // Hesaplanan tutar (Mal işlemi için) - ARTIK MANUEL
   const hesaplananMalTutar = useMemo(() => {
     return parseFloat(malForm.tutar) || 0
@@ -167,9 +169,6 @@ const Mustahsil: React.FC = () => {
     }
 
     try {
-      // Kesinti Hesabı
-      let netAlacak = hesaplananMalTutar
-
       await window.db.addHareket({
         cariId: selectedCariId,
         tarih: malForm.tarih,
@@ -177,10 +176,10 @@ const Mustahsil: React.FC = () => {
         partiNo: malForm.partiNo,
         miktar: parseFloat(malForm.miktar) || 0,
         birimFiyat: hesaplananBirimFiyat,
-        // ALIS -> Alacaklandır (Tedarikçi Alacağı Artar) ama NET tutar kadar
-        borc: 0, 
-        alacak: netAlacak, 
-        islemTipi: 'ALIS'
+        // SATIS -> Borçlandır (Müşteri Borcu Artar)
+        borc: hesaplananMalTutar, 
+        alacak: 0, 
+        islemTipi: 'SATIS'
       })
       
       setActiveModal('NONE')
@@ -201,7 +200,7 @@ const Mustahsil: React.FC = () => {
     }
 
     try {
-      // SADECE ÖDEME
+      // SADECE TAHSILAT
       // Açıklama oluştur
       let desc = finansForm.aciklama || finansForm.odemeTuru
       if (finansForm.odemeTuru === 'CEK' || finansForm.odemeTuru === 'SENET') {
@@ -212,10 +211,10 @@ const Mustahsil: React.FC = () => {
         cariId: selectedCariId,
         tarih: finansForm.tarih,
         aciklama: desc,
-        // ODEME -> Borçlandır (Alacak Düşer)
-        borc:  amount, 
-        alacak: 0,
-        islemTipi: 'ODEME',
+        // TAHSILAT -> Alacaklandır (Borç Düşer)
+        borc:  0, 
+        alacak: amount,
+        islemTipi: 'TAHSILAT',
         // Entegrasyon
         odemeTuru: finansForm.odemeTuru,
         belgeNo: finansForm.belgeNo,
@@ -261,7 +260,7 @@ const Mustahsil: React.FC = () => {
   const toplamBorc = ekstre.reduce((sum, row) => sum + row.borc, 0)
   const toplamAlacak = ekstre.reduce((sum, row) => sum + row.alacak, 0)
 
-  // Parti Raporu Oluştur
+  // Parti Raporu Oluştur (Satış Firması için anlamlı mı? Evet, ne kadar sattık)
   const partiRaporu = useMemo(() => {
     const map = new Map<string, {
       parti: string, 
@@ -304,11 +303,16 @@ const Mustahsil: React.FC = () => {
       }
       
       const item = map.get(row.parti_no)!
-      // Alacak (Mal Alışı/Girişi) -> Alış
-      // Borç (Mal Satışı/Çıkışı) -> Satış
+      // Alacak (Tahsilat veya İade Alış)
+      // Borç (Satış)
       if (row.alacak > 0 && row.miktar) {
-        item.alisMiktar += row.miktar
-        item.alisTutar += row.alacak
+         // Müşteriden mal geri gelirse? Veya sadece tahsilat.
+         // Burada raporlama mantığı Parti bazlı.
+         // Genelde Müşteriye SATIŞ yaparız (Borç).
+         // Müşteriden ALIS yapmayız normalde (İade hariç).
+         // Basit tutalım:
+         item.alisMiktar += row.miktar // Bu raporda Müşteri için "Alış" bizim "İade almamız" olabilir ama kafa karıştırmayalım
+         item.alisTutar += row.alacak
       }
       if (row.borc > 0 && row.miktar) {
         item.satisMiktar += row.miktar
@@ -319,6 +323,33 @@ const Mustahsil: React.FC = () => {
     return Array.from(map.values())
   }, [ekstre, reportStartDate, reportEndDate])
 
+  // Tahsilat Toplamı (Rapor Tarih Aralığı)
+  const raporTahsilatToplam = useMemo(() => {
+    // Tarih formatını parse et (DD.MM.YYYY -> Date)
+    const parseDate = (dateStr: string) => {
+      const parts = dateStr.split('.')
+      if (parts.length === 3) {
+        return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]))
+      }
+      return new Date(0)
+    }
+
+    const start = parseDate(reportStartDate)
+    const end = parseDate(reportEndDate)
+    end.setHours(23, 59, 59, 999)
+
+    return ekstre.reduce((sum, row) => {
+      // Sadece TAHSILAT işlemleri (Alacak > 0 ve islem_tipi TAHSILAT veya miktar yoksa)
+      // Satış Firmasında Alacak = Tahsilat (genellikle, iade değilse)
+      // Güvenli kontrol: row.alacak > 0
+      const rowDate = parseDate(row.tarih)
+      if (rowDate >= start && rowDate <= end) {
+         return sum + row.alacak
+      }
+      return sum
+    }, 0)
+  }, [ekstre, reportStartDate, reportEndDate])
+
   // Excel Export
   const handleExportExcel = async () => {
     if (partiRaporu.length === 0) return
@@ -326,11 +357,8 @@ const Mustahsil: React.FC = () => {
     const data = partiRaporu.map(item => ({
        'Parti No': item.parti,
        'Ürün Adı': item.urun,
-       'Alış Miktarı': item.alisMiktar,
-       'Alış Tutarı': item.alisTutar,
-       'Satış Miktarı': item.satisMiktar,
-       'Satış Tutarı': item.satisTutar,
-       'Fark (Net)': item.satisTutar - item.alisTutar
+       'Miktar': item.satisMiktar,
+       'Tutar': item.satisTutar
     }))
 
     await window.db.exportDataToExcel(data, `${selectedCari?.unvan || 'Rapor'}_PartiRaporu.xlsx`)
@@ -350,8 +378,8 @@ const Mustahsil: React.FC = () => {
     <>
       <div className="page-header">
         <div className="page-title">
-          <h1>Müstahsil İşlemleri</h1>
-          <p>Müstahsil takibi ve ödeme işlemleri</p>
+          <h1>Satış Firmaları</h1>
+          <p>Müşteri takibi ve tahsilat işlemleri</p>
         </div>
       </div>
 
@@ -364,7 +392,7 @@ const Mustahsil: React.FC = () => {
               <Search size={16} />
               <input 
                 type="text" 
-                placeholder="Müstahsil Ara..." 
+                placeholder="Firma Ara..." 
                 value={cariSearch}
                 onChange={e => setCariSearch(e.target.value)}
               />
@@ -391,11 +419,11 @@ const Mustahsil: React.FC = () => {
                 <div style={{ fontWeight: 600, fontSize: 14 }}>{cari.unvan}</div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, marginTop: 4 }}>
                   <div style={{ display: 'flex', gap: 6 }}>
-                    <span style={{ fontSize: 10, background: '#10b981', color: 'white', padding: '1px 5px', borderRadius: 4 }}>M</span>
+                    <span style={{ fontSize: 10, background: '#3b82f6', color: 'white', padding: '1px 5px', borderRadius: 4 }}>F</span>
                     <span>{cari.kod}</span>
                   </div>
-                  {/* Müstahsil için: A = Bizden alacağı var (borcumuz, kırmızı), B = Bize borcu var (alacağımız, yeşil) */}
-                  <span style={{ color: cari.bakiye_turu === 'A' ? 'var(--accent-danger)' : 'var(--accent-success)', fontWeight: 600 }}>
+                  {/* A = Cari bize borçlu (bizim alacağımız, yeşil), B = Biz cariye borçluyuz (bizim borcumuz, kırmızı) */}
+                  <span style={{ color: cari.bakiye_turu === 'A' ? 'var(--accent-success)' : 'var(--accent-danger)', fontWeight: 600 }}>
                     {formatCurrency(cari.bakiye)} {cari.bakiye_turu}
                   </span>
                 </div>
@@ -433,16 +461,16 @@ const Mustahsil: React.FC = () => {
                   <button 
                     onClick={() => setActiveModal('MAL')}
                     className="btn btn-primary"
-                    style={{ background: '#3b82f6', border: 'none', display: 'flex', gap: 8, alignItems: 'center' }}
+                    style={{ background: '#ef4444', border: 'none', display: 'flex', gap: 8, alignItems: 'center' }}
                   >
-                    <ShoppingCart size={16} /> Mal Alış
+                    <ShoppingCart size={16} /> Mal Satış
                   </button>
                   <button 
                     onClick={() => setActiveModal('FINANS')}
                     className="btn btn-primary"
-                    style={{ background: '#8b5cf6', border: 'none', display: 'flex', gap: 8, alignItems: 'center' }}
+                    style={{ background: '#10b981', border: 'none', display: 'flex', gap: 8, alignItems: 'center' }}
                   >
-                    <Wallet size={16} /> Ödeme Yap
+                    <Wallet size={16} /> Tahsilat Al
                   </button>
                   <button 
                     onClick={() => setActiveModal('RAPOR')}
@@ -453,14 +481,14 @@ const Mustahsil: React.FC = () => {
                   </button>
                 </div>
                 
-                <div style={{ textAlign: 'right', padding: '8px 16px', background: selectedCari?.bakiye_turu === 'A' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)', borderRadius: 6 }}>
-                    {/* Müstahsil için Bakiye A ise = Alacaklı = Biz borçluyuz = Ödememiz gereken (Kırmızı) */}
-                    {/* Bakiye B ise = Borçlu = Biz fazla ödemişiz = Alacağımız var (Yeşil) */}
-                  <div style={{ fontSize: 18, fontWeight: 700, color: selectedCari?.bakiye_turu === 'A' ? '#ef4444' : '#10b981' }}>
+                <div style={{ textAlign: 'right', padding: '8px 16px', background: selectedCari?.bakiye_turu === 'A' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)', borderRadius: 6 }}>
+                  {/* Satış Firması için Bakiye A ise = Cari bize borçlu = Alacağımız var (Yeşil) */}
+                  {/* Bakiye B ise = Biz cariye borçluyuz = Fazla ödeme yapmışız (Kırmızı) */}
+                  <div style={{ fontSize: 18, fontWeight: 700, color: selectedCari?.bakiye_turu === 'A' ? '#10b981' : '#ef4444' }}>
                     {formatCurrency(selectedCari?.bakiye || 0)} {selectedCari?.bakiye_turu}
                   </div>
                   <div style={{ fontSize: 11, color: 'var(--text-secondary)' }}>
-                     {selectedCari?.bakiye_turu === 'A' ? 'Ödenecek Tutar (Borcumuz)' : 'Fazla Ödeme (Alacağımız)'}
+                     Güncel Bakiye
                   </div>
                 </div>
               </div>
@@ -476,8 +504,8 @@ const Mustahsil: React.FC = () => {
                         <th style={{ width: 80 }}>Parti</th>
                         <th style={{ width: 80 }}>Miktar</th>
                         <th style={{ width: 80 }}>Fiyat</th>
-                        <th style={{ textAlign: 'right', width: 110 }}>Borç (Ödeme)</th>
-                        <th style={{ textAlign: 'right', width: 110 }}>Alacak (Alış)</th>
+                        <th style={{ textAlign: 'right', width: 110 }}>Borç (Satış)</th>
+                        <th style={{ textAlign: 'right', width: 110 }}>Alacak (Tahsilat)</th>
                         <th style={{ textAlign: 'right', width: 120 }}>Bakiye</th>
                         <th style={{ width: 50 }}></th>
                       </tr>
@@ -516,8 +544,8 @@ const Mustahsil: React.FC = () => {
                 
                 {/* FOOTER */}
                 <div style={{ padding: 12, borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end', gap: 30, background: 'var(--bg-secondary)', fontSize: 13 }}>
-                  <div>Toplam Ödenen: <span style={{ fontWeight: 600, color: '#ef4444' }}>{formatCurrency(toplamBorc)}</span></div>
-                  <div>Toplam Alınan Mal: <span style={{ fontWeight: 600, color: '#10b981' }}>{formatCurrency(toplamAlacak)}</span></div>
+                  <div>Toplam Satış: <span style={{ fontWeight: 600, color: '#ef4444' }}>{formatCurrency(toplamBorc)}</span></div>
+                  <div>Toplam Tahsilat: <span style={{ fontWeight: 600, color: '#10b981' }}>{formatCurrency(toplamAlacak)}</span></div>
                 </div>
               </div>
             </>
@@ -525,19 +553,19 @@ const Mustahsil: React.FC = () => {
              <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
                <div style={{ textAlign: 'center' }}>
                  <User size={64} style={{ opacity: 0.2 }} />
-                 <p>Müstahsil seçiniz</p>
+                 <p>Firma seçiniz</p>
                </div>
              </div>
           )}
         </div>
       </div>
 
-      {/* MODAL - MAL İŞLEMİ (ALIŞ) */}
+      {/* MODAL - MAL İŞLEMİ (SATIŞ) */}
       {activeModal === 'MAL' && (
         <div className="modal-overlay">
           <div className="modal-content" style={{ width: 450 }}>
             <div className="modal-header">
-              <h3>Mal Alış İşlemi</h3>
+              <h3>Mal Satış İşlemi</h3>
               <button onClick={() => setActiveModal('NONE')}><X size={18} /></button>
             </div>
             <form onSubmit={handleMalSubmit} className="modal-body">
@@ -545,13 +573,13 @@ const Mustahsil: React.FC = () => {
                 marginBottom: 20, 
                 padding: 12, 
                 borderRadius: 8, 
-                background: 'rgba(16, 185, 129, 0.15)', 
-                color: '#10b981', 
+                background: 'rgba(239, 68, 68, 0.15)', 
+                color: '#ef4444', 
                 fontWeight: 600, 
                 textAlign: 'center',
-                border: '1px solid rgba(16, 185, 129, 0.3)'
+                border: '1px solid rgba(239, 68, 68, 0.3)'
               }}>
-                📥 Mal Alışı (Müstahsil Alacaklanır)
+                📤 Mal Satışı (Müşteri Borçlanır)
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
@@ -578,28 +606,28 @@ const Mustahsil: React.FC = () => {
                   <input type="number" step="0.01" value={malForm.tutar} onChange={e => setMalForm(p => ({ ...p, tutar: e.target.value }))} style={inputStyle} placeholder="Manuel giriniz" />
                 </div>
               </div>
-
+              
               <div style={{ marginTop: 20, padding: 12, background: 'var(--bg-secondary)', borderRadius: 6 }}>
-                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                     <span>Toplam Tutar:</span>
                     <span style={{ fontWeight: 600 }}>{formatCurrency(hesaplananMalTutar)} ₺</span>
                  </div>
               </div>
 
               <div className="modal-footer">
-                <button type="submit" className="btn btn-primary w-full">Mal Alışını Kaydet</button>
+                <button type="submit" className="btn btn-primary w-full">Satışı Kaydet</button>
               </div>
             </form>
           </div>
         </div>
       )}
 
-      {/* MODAL - FİNANSAL İŞLEM (ÖDEME) */}
+      {/* MODAL - FİNANSAL İŞLEM (TAHSİLAT) */}
       {activeModal === 'FINANS' && (
         <div className="modal-overlay">
           <div className="modal-content" style={{ width: 450 }}>
             <div className="modal-header">
-              <h3>Ödeme Yap</h3>
+              <h3>Tahsilat Al</h3>
               <button onClick={() => setActiveModal('NONE')}><X size={18} /></button>
             </div>
             <form onSubmit={handleFinansSubmit} className="modal-body">
@@ -607,13 +635,13 @@ const Mustahsil: React.FC = () => {
                 marginBottom: 20, 
                 padding: 12, 
                 borderRadius: 8, 
-                background: 'rgba(239, 68, 68, 0.15)', 
-                color: '#ef4444', 
+                background: 'rgba(16, 185, 129, 0.15)', 
+                color: '#10b981', 
                 fontWeight: 600, 
                 textAlign: 'center',
-                border: '1px solid rgba(239, 68, 68, 0.3)'
+                border: '1px solid rgba(16, 185, 129, 0.3)'
               }}>
-                💸 Ödeme Yap (Bizden Çıkan Para)
+                💰 Tahsilat Al (Kasa Girişi)
               </div>
 
               <div style={{ marginBottom: 16 }}>
@@ -667,24 +695,17 @@ const Mustahsil: React.FC = () => {
               </div>
 
               <div className="modal-footer">
-                <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Ödemeyi Kaydet</button>
+                <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Tahsilatı Kaydet</button>
               </div>
             </form>
           </div>
         </div>
       )}
       
-      {/* MODAL - RAPOR - Omitted for brevity but keeping basic structure if needed or closing tags */}
-      {/* Keeping previous Rapor functionality? Based on user request, only focus was Mal/Finance options. I will include the Rapor Modal at the end if it was there. 
-          Actually, I should copy the Rapor modal from the previous ViewFile content to avoid breaking it. 
-          I will try to keep it simple, or request it back. 
-          Wait, I can re-add the Rapor modal. It was large.
-          Ill add a simple placeholder or reconstruction.
-          Actually, I have the Rapor modal in the previous turn's output (lines 783+). I will append it.
-      */}
+      {/* MODAL - RAPOR - Same as Mustahsil, just different content */}
       {activeModal === 'RAPOR' && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ width: 600 }}>
+          <div className="modal-content" style={{ width: 900 }}>
              <div className="modal-header">
                <h3>Parti Bazlı Rapor ({selectedCari?.unvan})</h3>
                <button onClick={() => setActiveModal('NONE')} className="no-print"><X size={18} /></button>
@@ -713,6 +734,14 @@ const Mustahsil: React.FC = () => {
                 </div>
                 <div style={{ flex: 1 }}></div>
                 <button 
+                  onClick={() => window.print()}
+                  className="btn btn-primary no-print"
+                  title="Yazdır"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 10px', marginRight: 8 }}
+                >
+                  <Printer size={16} />
+                </button>
+                <button 
                   onClick={handleExportExcel}
                   className="btn btn-secondary no-print"
                   style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}
@@ -728,37 +757,54 @@ const Mustahsil: React.FC = () => {
                       <tr>
                         <th>Parti</th>
                         <th>Ürün</th>
-                        <th style={{ textAlign: 'right' }}>Alış (KG)</th>
-                        <th style={{ textAlign: 'right' }}>Satış (KG)</th>
-                        <th style={{ textAlign: 'right' }}>Net (TL)</th>
+                        <th style={{ textAlign: 'right' }}>Miktar (KG)</th>
+                        <th style={{ textAlign: 'right' }}>Satış Tutar (TL)</th>
                       </tr>
                     </thead>
                     <tbody>
                       {partiRaporu.length === 0 ? (
-                        <tr><td colSpan={5} style={{ textAlign: 'center', padding: 20, color: '#999' }}>Bu aralıkta veri yok</td></tr>
+                        <tr><td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#999' }}>Bu aralıkta veri yok</td></tr>
                       ) : (
                         partiRaporu.map((row, i) => (
                           <tr key={i}>
                             <td style={{ fontWeight: 600 }}>{row.parti}</td>
                             <td>{row.urun}</td>
-                            <td style={{ textAlign: 'right' }}>{row.alisMiktar}</td>
                             <td style={{ textAlign: 'right' }}>{row.satisMiktar}</td>
-                            <td style={{ textAlign: 'right', fontWeight: 600, color: (row.satisTutar - row.alisTutar) > 0 ? '#10b981' : '#ef4444' }}>
-                              {formatCurrency(row.satisTutar - row.alisTutar)}
+                            <td style={{ textAlign: 'right', fontWeight: 600 }}>
+                              {formatCurrency(row.satisTutar)}
                             </td>
                           </tr>
                         ))
                       )}
                     </tbody>
+                    <tfoot style={{ position: 'sticky', bottom: 0, background: 'var(--bg-secondary)', fontWeight: 700 }}>
+                      <tr>
+                        <td colSpan={3} style={{ textAlign: 'right', padding: 12 }}>Toplam Satış:</td>
+                        <td style={{ textAlign: 'right', padding: 12, color: '#ef4444' }}>
+                          {formatCurrency(partiRaporu.reduce((s, r) => s + r.satisTutar, 0))} ₺
+                        </td>
+                      </tr>
+                      <tr>
+                        <td colSpan={3} style={{ textAlign: 'right', padding: 12 }}>Toplam Tahsilat:</td>
+                        <td style={{ textAlign: 'right', padding: 12, color: '#10b981' }}>
+                          {formatCurrency(raporTahsilatToplam)} ₺
+                        </td>
+                      </tr>
+                      <tr>
+                        <td colSpan={3} style={{ textAlign: 'right', padding: 12 }}>Fark (Kalan):</td>
+                        <td style={{ textAlign: 'right', padding: 12 }}>
+                          {formatCurrency(partiRaporu.reduce((s, r) => s + r.satisTutar, 0) - raporTahsilatToplam)} ₺
+                        </td>
+                      </tr>
+                    </tfoot>
                   </table>
                 </div>
              </div>
           </div>
         </div>
       )}
-
     </>
   )
 }
 
-export default Mustahsil
+export default SatisFirmalari

@@ -4,14 +4,28 @@ import { join } from 'path'
 import { existsSync, mkdirSync } from 'fs'
 
 // Veritabanı dosya yolu
+// Veritabanı dosya yolu
 const getDbPath = (): string => {
-  const userDataPath = app.getPath('userData')
-  const dbDir = join(userDataPath, 'data')
+  let dbDir: string
+  
+  if (app.isPackaged) {
+    // Production: AppData klasörü (Kalıcı veri)
+    const userDataPath = app.getPath('userData')
+    dbDir = join(userDataPath, 'data')
+  } else {
+    // Development: Proje klasörü (Kolay erişim)
+    dbDir = join(process.cwd(), 'data')
+  }
   
   // data klasörü yoksa oluştur
   if (!existsSync(dbDir)) {
     mkdirSync(dbDir, { recursive: true })
   }
+  
+  console.log('Database Path Configured:', {
+    isPackaged: app.isPackaged,
+    path: join(dbDir, 'hal.db')
+  })
   
   return join(dbDir, 'hal.db')
 }
@@ -93,22 +107,7 @@ const createTables = (): void => {
     )
   `)
 
-  // Faturalar tablosu
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS faturalar (
-      id TEXT PRIMARY KEY,
-      cari_id TEXT NOT NULL,
-      fatura_no TEXT UNIQUE,
-      tarih TEXT NOT NULL,
-      toplam REAL DEFAULT 0,
-      kdv REAL DEFAULT 0,
-      genel_toplam REAL DEFAULT 0,
-      fatura_tipi TEXT DEFAULT 'SATIS',
-      aciklama TEXT,
-      olusturma_tarihi TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (cari_id) REFERENCES cariler(id) ON DELETE CASCADE
-    )
-  `)
+
 
   // Kasa işlemleri tablosu
   db.exec(`

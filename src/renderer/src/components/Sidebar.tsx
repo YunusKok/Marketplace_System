@@ -3,15 +3,15 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
   Users,
-  FileText,
-  Wallet,
+
   BarChart3,
   Settings,
   LogOut,
   Store,
   Receipt,
   CreditCard,
-  FileSpreadsheet
+  FileSpreadsheet,
+  ShoppingBag
 } from 'lucide-react'
 
 interface SidebarProps {
@@ -38,9 +38,9 @@ const Sidebar: React.FC<SidebarProps> = ({ username, onLogout }) => {
     {
       section: 'İşlemler',
       items: [
-        { path: '/faturalar', icon: FileText, label: 'Faturalar' },
+
         { path: '/mustahsil', icon: Receipt, label: 'Müstahsil' },
-        { path: '/kasa', icon: Wallet, label: 'Kasa' },
+        { path: '/satis-firmalari', icon: ShoppingBag, label: 'Satış Firmaları' },
         { path: '/cek-senet', icon: CreditCard, label: 'Çek/Senet' },
       ]
     },

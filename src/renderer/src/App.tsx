@@ -10,9 +10,9 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import CariListesi from './pages/CariListesi'
 import CariEkstre from './pages/CariEkstre'
-import Faturalar from './pages/Faturalar'
+
 import Mustahsil from './pages/Mustahsil'
-import Kasa from './pages/Kasa'
+import SatisFirmalari from './pages/SatisFirmalari'
 import CekSenet from './pages/CekSenet'
 import Raporlar from './pages/Raporlar'
 import Ayarlar from './pages/Ayarlar'
@@ -91,9 +91,9 @@ function App(): React.JSX.Element {
           <Route path="/cariler/alacakli" element={<CariListesi filter="alacakli" />} />
           <Route path="/ekstre/:cariId" element={<CariEkstre />} />
           <Route path="/ekstre" element={<CariEkstre />} />
-          <Route path="/faturalar" element={<Faturalar />} />
+
           <Route path="/mustahsil" element={<Mustahsil />} />
-          <Route path="/kasa" element={<Kasa />} />
+          <Route path="/satis-firmalari" element={<SatisFirmalari />} />
           <Route path="/cek-senet" element={<CekSenet />} />
           <Route path="/raporlar" element={<Raporlar />} />
           <Route path="/ayarlar" element={<Ayarlar />} />

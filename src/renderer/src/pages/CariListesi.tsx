@@ -141,6 +141,7 @@ const AnimatedCariRow: React.FC<AnimatedCariRowProps> = ({
       <td>{cari.yetkili || '-'}</td>
       <td>{cari.telefon || '-'}</td>
       <td style={{ textAlign: 'right' }}>
+        {/* A = bize borçlu (alacağımız, yeşil), B = bize alacaklı (borcumuz, kırmızı) */}
         <span className={`bakiye-tag ${cari.bakiye_turu === 'A' ? 'alacak' : 'borc'}`}>
           {formatCurrency(cari.bakiye)} {cari.bakiye_turu}
         </span>
@@ -485,12 +486,14 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
   }
 
   // Toplam hesaplamaları
-  const toplamBorc = cariler
-    .filter(c => c.bakiye_turu === 'B')
+  // Bakiye Türü 'A' = Cari bize borçlu = BİZİM ALACAĞIMIZ (yeşil)
+  const toplamBizimAlacak = cariler
+    .filter(c => c.bakiye_turu === 'A')
     .reduce((sum, c) => sum + c.bakiye, 0)
   
-  const toplamAlacak = cariler
-    .filter(c => c.bakiye_turu === 'A')
+  // Bakiye Türü 'B' = Biz cariye borçluyuz = BİZİM BORCUMUZ (kırmızı)
+  const toplamBizimBorc = cariler
+    .filter(c => c.bakiye_turu === 'B')
     .reduce((sum, c) => sum + c.bakiye, 0)
   
   // Filter label
@@ -529,13 +532,13 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
       <div className="page-header">
         <div className="page-title">
           <h1>
-            {filter === 'borclu' ? 'Borçlu Cariler' : 
-             filter === 'alacakli' ? 'Alacaklı Cariler' : 
+            {filter === 'borclu' ? 'Alacaklarımız (Borçlu Cariler)' : 
+             filter === 'alacakli' ? 'Borçlarımız (Alacaklı Cariler)' : 
              'Cariler'}
           </h1>
           <p>
-            {filter === 'borclu' ? 'Borçlu cari hesaplarınız' : 
-             filter === 'alacakli' ? 'Alacaklı cari hesaplarınız' : 
+            {filter === 'borclu' ? 'Alacaklarımız (Borçlu Cariler)' : 
+             filter === 'alacakli' ? 'Borçlarımız (Alacaklı Cariler)' : 
              'Tüm cari hesaplarınızı yönetin'}
           </p>
         </div>
@@ -574,25 +577,25 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
             </div>
           </div>
           <div 
-            onClick={() => setLocalFilter('borclu')}
-            className={`summary-card card-danger ${localFilter === 'borclu' ? 'active-borclu' : ''}`}
+            onClick={() => setLocalFilter('alacakli')}
+            className={`summary-card card-danger ${localFilter === 'alacakli' ? 'active-borclu' : ''}`}
           >
             <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>
-              Toplam Borçlu
+              Toplam Borçlarımız
             </div>
             <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--accent-danger)' }}>
-              {formatCurrency(toplamBorc)}
+              {formatCurrency(toplamBizimBorc)}
             </div>
           </div>
           <div 
-            onClick={() => setLocalFilter('alacakli')}
-            className={`summary-card card-success ${localFilter === 'alacakli' ? 'active-alacakli' : ''}`}
+            onClick={() => setLocalFilter('borclu')}
+            className={`summary-card card-success ${localFilter === 'borclu' ? 'active-alacakli' : ''}`}
           >
             <div style={{ fontSize: 14, color: 'var(--text-secondary)', marginBottom: 8 }}>
-              Toplam Alacaklı
+              Toplam Alacaklarımız
             </div>
             <div style={{ fontSize: 28, fontWeight: 700, color: 'var(--accent-success)' }}>
-              {formatCurrency(toplamAlacak)}
+              {formatCurrency(toplamBizimAlacak)}
             </div>
           </div>
         </div>

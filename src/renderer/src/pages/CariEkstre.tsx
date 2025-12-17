@@ -317,11 +317,14 @@ const CariEkstre: React.FC = () => {
 
   // SELECTION INTERFACE (When no cariId)
   if (!cariId) {
-    // Calculate summary stats
+    // Bakiye Türü 'A' = Cari bize borçlu = BİZİM ALACAĞIMIZ (yeşil)
     const toplamCari = allCariler.length
-    const borcluCari = allCariler.filter(c => c.bakiye_turu === 'B').length
-    const alacakliCari = allCariler.filter(c => c.bakiye_turu === 'A').length
+    const bizimAlacak = allCariler.filter(c => c.bakiye_turu === 'A').length
+    // Bakiye Türü 'B' = Biz cariye borçluyuz = BİZİM BORCUMUZ (kırmızı)
+    const bizimBorc = allCariler.filter(c => c.bakiye_turu === 'B').length
+    // Net Bakiye: Alacaklarımız - Borçlarımız (Pozitif = biz alacaklıyız)
     const toplamBakiye = allCariler.reduce((sum, c) => {
+      // 'A' = bizim alacağımız (pozitif), 'B' = bizim borcumuz (negatif)
       return sum + (c.bakiye_turu === 'A' ? c.bakiye : -c.bakiye)
     }, 0)
 
@@ -421,10 +424,10 @@ const CariEkstre: React.FC = () => {
                 onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <TrendingDown size={16} color="var(--accent-danger)" />
-                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Borçlu</span>
+                    <TrendingUp size={16} color="var(--accent-success)" />
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Alacağımız (A)</span>
                   </div>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-danger)' }}>{borcluCari}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-success)' }}>{bizimAlacak}</div>
                 </div>
 
                 <div style={{
@@ -441,10 +444,10 @@ const CariEkstre: React.FC = () => {
                 onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                    <TrendingUp size={16} color="var(--accent-success)" />
-                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Alacaklı</span>
+                    <TrendingDown size={16} color="var(--accent-danger)" />
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Borcumuz (B)</span>
                   </div>
-                  <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-success)' }}>{alacakliCari}</div>
+                  <div style={{ fontSize: 24, fontWeight: 700, color: 'var(--accent-danger)' }}>{bizimBorc}</div>
                 </div>
 
                 <div style={{
@@ -735,6 +738,7 @@ const CariEkstre: React.FC = () => {
                 alignItems: 'center',
                 justifyContent: 'center'
               }}>
+                {/* A = bize borçlu (alacağımız, yeşil), B = bize alacaklı (borcumuz, kırmızı) */}
                 {sonBakiye?.bakiye_turu === 'A' 
                   ? <TrendingUp size={22} color="var(--accent-success)" />
                   : <TrendingDown size={22} color="var(--accent-danger)" />
@@ -993,6 +997,7 @@ const CariEkstre: React.FC = () => {
                       )}
                     </td>
                     <td style={{ textAlign: 'right' }}>
+                      {/* A = bize borçlu (alacağımız, yeşil), B = bize alacaklı (borcumuz, kırmızı) */}
                       <span className={`bakiye-tag ${hareket.bakiye_turu === 'A' ? 'alacak' : 'borc'}`}>
                         {formatCurrency(hareket.bakiye)} {hareket.bakiye_turu}
                       </span>
@@ -1016,6 +1021,7 @@ const CariEkstre: React.FC = () => {
                     </span>
                   </td>
                   <td style={{ textAlign: 'right' }}>
+                    {/* A = bize borçlu (alacağımız, yeşil), B = bize alacaklı (borcumuz, kırmızı) */}
                     <span className={`bakiye-tag ${sonBakiye?.bakiye_turu === 'A' ? 'alacak' : 'borc'}`} style={{ fontSize: 14, padding: '6px 12px' }}>
                       {formatCurrency(sonBakiye?.bakiye || 0)} {sonBakiye?.bakiye_turu}
                     </span>
