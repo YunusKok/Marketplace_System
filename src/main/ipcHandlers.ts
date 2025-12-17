@@ -480,6 +480,7 @@ ipcMain.handle('db:addMustahsil', async (_, mustahsil: {
   cariId: string
   tarih: string
   makbuzNo: string
+  partiNo?: string // Fixed lint error
   urunAdi: string
   miktar: number
   birim: string
@@ -501,12 +502,13 @@ ipcMain.handle('db:addMustahsil', async (_, mustahsil: {
   const transaction = db.transaction(() => {
     // 1. Müstahsili ekle
     db.prepare(`
-      INSERT INTO mustahsiller (id, cari_id, makbuz_no, tarih, urun_adi, miktar, birim, birim_fiyat, toplam, stopaj_orani, stopaj_tutari, net_tutar, aciklama)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO mustahsiller (id, cari_id, makbuz_no, parti_no, tarih, urun_adi, miktar, birim, birim_fiyat, toplam, stopaj_orani, stopaj_tutari, net_tutar, aciklama)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       mustahsil.cariId,
       mustahsil.makbuzNo,
+      mustahsil.partiNo || '', // Parti No eklendi
       mustahsil.tarih,
       mustahsil.urunAdi,
       mustahsil.miktar,
@@ -519,7 +521,7 @@ ipcMain.handle('db:addMustahsil', async (_, mustahsil: {
       mustahsil.aciklama || ''
     )
 
-    // 2. Hareketi ekle - Müstahsil alımda üreticiye borç oluşur
+    // 2. Hareketi ekle - Müstahsil alımda üretici ALACAKLANIR (Biz borçlanırız, onun alacağı artar)
     const sonHareket = db.prepare(`
       SELECT bakiye, bakiye_turu FROM hareketler 
       WHERE cari_id = ? ORDER BY olusturma_tarihi DESC LIMIT 1
@@ -528,14 +530,14 @@ ipcMain.handle('db:addMustahsil', async (_, mustahsil: {
     let mevcutNetBakiye = 0
     if (sonHareket) {
       if (sonHareket.bakiye_turu === 'A') {
-        mevcutNetBakiye = sonHareket.bakiye
+        mevcutNetBakiye = sonHareket.bakiye // Alacak pozitif
       } else {
-        mevcutNetBakiye = -sonHareket.bakiye
+        mevcutNetBakiye = -sonHareket.bakiye // Borç negatif
       }
     }
     
-    // Müstahsil alımı = Borç (üreticiye ödeme yapılacak)
-    const yeniNetBakiye = mevcutNetBakiye - netTutar
+    // Müstahsil mal verdi (Alacak işlemi) -> Alacak artar
+    const yeniNetBakiye = mevcutNetBakiye + netTutar
     
     let yeniBakiyeTuru = 'A'
     let yeniMutlakBakiye = yeniNetBakiye
@@ -555,8 +557,8 @@ ipcMain.handle('db:addMustahsil', async (_, mustahsil: {
       mustahsil.cariId,
       mustahsil.tarih,
       `${mustahsil.makbuzNo} Nolu Müstahsil Makbuzu - ${mustahsil.urunAdi}`,
-      netTutar, // Borç olarak işle
-      0,
+      0, // Borç
+      netTutar, // Alacak (Üreticiye olan borcumuz artıyor, yani onun alacağı artıyor)
       yeniMutlakBakiye,
       yeniBakiyeTuru,
       'MUSTAHSIL'
@@ -572,6 +574,46 @@ ipcMain.handle('db:addMustahsil', async (_, mustahsil: {
   transaction()
   
   return db.prepare('SELECT * FROM mustahsiller WHERE id = ?').get(id)
+})
+
+// Müstahsil ekstresi getir (Hareketler + Ürün Detayları)
+ipcMain.handle('db:getMusthasilEkstre', async (_, cariId: string) => {
+  const db = getDatabase()
+  if (!db) return []
+  
+  // Tüm hareketleri çek
+  const hareketler = db.prepare(`
+    SELECT * FROM hareketler 
+    WHERE cari_id = ? 
+    ORDER BY tarih DESC, olusturma_tarihi DESC
+  `).all(cariId) as any[]
+
+  // Bu carinin müstahsil makbuzlarını çek (Detayları eşleştirmek için)
+  const makbuzlar = db.prepare(`
+    SELECT * FROM mustahsiller 
+    WHERE cari_id = ?
+  `).all(cariId) as any[]
+
+  // Hareketleri işle ve detayları ekle
+  return hareketler.map(hareket => {
+    // Eğer işlem tipi MUSTAHSIL ise ve açıklamada makbuz no geçiyorsa detay bul
+    let detay: any = undefined // Fixed lint error 'never'
+
+    if (hareket.islem_tipi === 'MUSTAHSIL') {
+      // Açıklamadan makbuz no'yu çıkarmaya çalış veya eşleştir
+      // Basitçe makbuz_no içeren kaydı buluyoruz
+      detay = makbuzlar.find((m: any) => hareket.aciklama.includes(m.makbuz_no))
+    }
+
+    return {
+      ...hareket,
+      parti_no: detay?.parti_no || '',
+      miktar: detay?.miktar || 0,
+      birim: detay?.birim || '',
+      birim_fiyat: detay?.birim_fiyat || 0,
+      urun_adi: detay?.urun_adi || ''
+    }
+  })
 })
 
 // Müstahsil sil
@@ -775,6 +817,7 @@ ipcMain.handle('db:getCekSenetOzet', async () => {
 ipcMain.handle('db:addCekSenet', async (_, cekSenet: {
   cariId?: string
   tip: 'CEK' | 'SENET'
+  yon?: 'ALINAN' | 'VERILEN'
   numara?: string
   banka?: string
   vadeTarihi: string
@@ -786,21 +829,87 @@ ipcMain.handle('db:addCekSenet', async (_, cekSenet: {
   if (!db) return null
   
   const id = `cs${Date.now()}`
+  const yon = cekSenet.yon || 'ALINAN' // Default Giriş
   
-  db.prepare(`
-    INSERT INTO cek_senet (id, cari_id, tip, numara, banka, vade_tarihi, tutar, durum, aciklama)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(
-    id,
-    cekSenet.cariId || null,
-    cekSenet.tip,
-    cekSenet.numara || '',
-    cekSenet.banka || '',
-    cekSenet.vadeTarihi,
-    cekSenet.tutar,
-    cekSenet.durum || 'BEKLEMEDE',
-    cekSenet.aciklama || ''
-  )
+  const transaction = db.transaction(() => {
+    // 1. Çek/Senet ekle
+    db.prepare(`
+      INSERT INTO cek_senet (id, cari_id, tip, yon, numara, banka, vade_tarihi, tutar, durum, aciklama)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id,
+      cekSenet.cariId || null,
+      cekSenet.tip,
+      yon,
+      cekSenet.numara || '',
+      cekSenet.banka || '',
+      cekSenet.vadeTarihi,
+      cekSenet.tutar,
+      cekSenet.durum || 'BEKLEMEDE',
+      cekSenet.aciklama || ''
+    )
+    
+    // 2. Eğer cari varsa, hareket ekle ve bakiye güncelle
+    if (cekSenet.cariId) {
+      const sonHareket = db.prepare(`
+        SELECT bakiye, bakiye_turu FROM hareketler 
+        WHERE cari_id = ? ORDER BY olusturma_tarihi DESC LIMIT 1
+      `).get(cekSenet.cariId) as { bakiye: number; bakiye_turu: string } | undefined
+      
+      let mevcutNetBakiye = 0
+      if (sonHareket) {
+        if (sonHareket.bakiye_turu === 'A') {
+          mevcutNetBakiye = sonHareket.bakiye
+        } else {
+          mevcutNetBakiye = -sonHareket.bakiye
+        }
+      }
+      
+      let borc = 0
+      let alacak = 0
+      
+      if (yon === 'ALINAN') {
+        alacak = cekSenet.tutar // Müşteriden çek alındı, hesabı alacaklanır (borcu düşer)
+      } else {
+        borc = cekSenet.tutar // Müşteriye/Üreticiye çek verildi, hesabı borçlanır (alacağı düşer)
+      }
+      
+      const yeniNetBakiye = mevcutNetBakiye + alacak - borc
+      
+      let yeniBakiyeTuru = 'A'
+      let yeniMutlakBakiye = yeniNetBakiye
+      
+      if (yeniNetBakiye < 0) {
+        yeniBakiyeTuru = 'B'
+        yeniMutlakBakiye = Math.abs(yeniNetBakiye)
+      }
+      
+      const hareketId = `h${Date.now()}`
+      
+      db.prepare(`
+        INSERT INTO hareketler (id, cari_id, tarih, aciklama, borc, alacak, bakiye, bakiye_turu, islem_tipi)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        hareketId,
+        cekSenet.cariId,
+        new Date().toLocaleDateString('tr-TR'), // İşlem tarihi bugün
+        `${cekSenet.tip} (${yon}) - ${cekSenet.numara || ''} - Vade: ${cekSenet.vadeTarihi}`,
+        borc,
+        alacak,
+        yeniMutlakBakiye,
+        yeniBakiyeTuru,
+        cekSenet.tip
+      )
+      
+      // 3. Cari bakiyesini güncelle
+      db.prepare(`
+        UPDATE cariler SET bakiye = ?, bakiye_turu = ?, guncelleme_tarihi = datetime('now')
+        WHERE id = ?
+      `).run(yeniMutlakBakiye, yeniBakiyeTuru, cekSenet.cariId)
+    }
+  })
+  
+  transaction()
   
   return db.prepare('SELECT * FROM cek_senet WHERE id = ?').get(id)
 })
@@ -809,6 +918,7 @@ ipcMain.handle('db:addCekSenet', async (_, cekSenet: {
 ipcMain.handle('db:updateCekSenet', async (_, id: string, cekSenet: Partial<{
   cariId?: string
   tip: 'CEK' | 'SENET'
+  yon?: 'ALINAN' | 'VERILEN'
   numara?: string
   banka?: string
   vadeTarihi?: string
@@ -824,6 +934,7 @@ ipcMain.handle('db:updateCekSenet', async (_, id: string, cekSenet: Partial<{
   
   if (cekSenet.cariId !== undefined) { updates.push('cari_id = ?'); values.push(cekSenet.cariId || null) }
   if (cekSenet.tip) { updates.push('tip = ?'); values.push(cekSenet.tip) }
+  if (cekSenet.yon) { updates.push('yon = ?'); values.push(cekSenet.yon) }
   if (cekSenet.numara !== undefined) { updates.push('numara = ?'); values.push(cekSenet.numara || '') }
   if (cekSenet.banka !== undefined) { updates.push('banka = ?'); values.push(cekSenet.banka || '') }
   if (cekSenet.vadeTarihi) { updates.push('vade_tarihi = ?'); values.push(cekSenet.vadeTarihi) }

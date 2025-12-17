@@ -113,6 +113,7 @@ const createTables = (): void => {
       id TEXT PRIMARY KEY,
       cari_id TEXT,
       tip TEXT NOT NULL,
+      yon TEXT DEFAULT 'ALINAN', -- ALINAN (Giriş/Tahsilat) or VERILEN (Çıkış/Ödeme)
       numara TEXT,
       banka TEXT,
       vade_tarihi TEXT,
@@ -130,6 +131,7 @@ const createTables = (): void => {
       id TEXT PRIMARY KEY,
       cari_id TEXT,
       makbuz_no TEXT UNIQUE NOT NULL,
+      parti_no TEXT,
       tarih TEXT NOT NULL,
       urun_adi TEXT NOT NULL,
       miktar REAL DEFAULT 0,
@@ -164,6 +166,27 @@ const createTables = (): void => {
       deger TEXT
     )
   `)
+  
+  // Şema güncellemeleri (Migrations)
+  try {
+    const mustahsilInfo = db.prepare("PRAGMA table_info(mustahsiller)").all() as { name: string }[]
+    const hasPartiNo = mustahsilInfo.some(col => col.name === 'parti_no')
+    
+    if (!hasPartiNo) {
+      console.log('Adding parti_no column to mustahsiller table...')
+      db.prepare("ALTER TABLE mustahsiller ADD COLUMN parti_no TEXT").run()
+    }
+
+    const cekSenetInfo = db.prepare("PRAGMA table_info(cek_senet)").all() as { name: string }[]
+    const hasYon = cekSenetInfo.some(col => col.name === 'yon')
+    
+    if (!hasYon) {
+      console.log('Adding yon column to cek_senet table...')
+      db.prepare("ALTER TABLE cek_senet ADD COLUMN yon TEXT DEFAULT 'ALINAN'").run()
+    }
+  } catch (error) {
+    console.error('Schema migration error:', error)
+  }
 
   console.log('Database tables created successfully')
 }

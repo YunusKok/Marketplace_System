@@ -64,18 +64,9 @@ const dbAPI = {
   
   // Müstahsil işlemleri
   getMustahsiller: () => ipcRenderer.invoke('db:getMustahsiller'),
-  addMustahsil: (mustahsil: {
-    cariId: string
-    tarih: string
-    makbuzNo: string
-    urunAdi: string
-    miktar: number
-    birim: string
-    birimFiyat: number
-    stopajOrani: number
-    aciklama?: string
-  }) => ipcRenderer.invoke('db:addMustahsil', mustahsil),
+  addMustahsil: (mustahsil: any) => ipcRenderer.invoke('db:addMustahsil', mustahsil),
   deleteMustahsil: (id: string) => ipcRenderer.invoke('db:deleteMustahsil', id),
+  getMusthasilEkstre: (cariId: string) => ipcRenderer.invoke('db:getMusthasilEkstre', cariId),
   
   // Kasa işlemleri
   getKasaIslemleri: () => ipcRenderer.invoke('db:getKasaIslemleri'),

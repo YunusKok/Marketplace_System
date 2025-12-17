@@ -29,6 +29,12 @@ interface HareketData {
   islem_tipi: string
   olusturma_tarihi?: string
   cari_unvan?: string
+  // Müstahsil detayları
+  parti_no?: string
+  miktar?: number
+  birim?: string
+  birim_fiyat?: number
+  urun_adi?: string
 }
 
 // Dashboard stats tipi
@@ -77,8 +83,10 @@ interface MustahsilData {
   stopaj_tutari: number
   net_tutar: number
   aciklama?: string
+  aciklama?: string
   olusturma_tarihi?: string
   cari_unvan?: string
+  parti_no?: string
 }
 
 // Kullanıcı tipi
@@ -113,6 +121,7 @@ interface CekSenetData {
   id: string
   cari_id?: string
   tip: 'CEK' | 'SENET'
+  yon: 'ALINAN' | 'VERILEN'
   numara?: string
   banka?: string
   vade_tarihi: string
@@ -198,6 +207,7 @@ interface DatabaseAPI {
     cariId: string
     tarih: string
     makbuzNo: string
+    partiNo?: string
     urunAdi: string
     miktar: number
     birim: string
@@ -206,6 +216,7 @@ interface DatabaseAPI {
     aciklama?: string
   }) => Promise<MustahsilData | null>
   deleteMustahsil: (id: string) => Promise<boolean>
+  getMusthasilEkstre: (cariId: string) => Promise<HareketData[]>
   
   // Kasa işlemleri
   getKasaIslemleri: () => Promise<KasaIslemData[]>
@@ -225,6 +236,7 @@ interface DatabaseAPI {
   addCekSenet: (cekSenet: {
     cariId?: string
     tip: 'CEK' | 'SENET'
+    yon?: 'ALINAN' | 'VERILEN'
     numara?: string
     banka?: string
     vadeTarihi: string
@@ -235,6 +247,7 @@ interface DatabaseAPI {
   updateCekSenet: (id: string, cekSenet: Partial<{
     cariId?: string
     tip: 'CEK' | 'SENET'
+    yon?: 'ALINAN' | 'VERILEN'
     numara?: string
     banka?: string
     vadeTarihi?: string
