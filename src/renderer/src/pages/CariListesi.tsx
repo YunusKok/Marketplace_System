@@ -4,7 +4,6 @@ import {
   Search, 
   Plus, 
   Filter, 
-  MoreVertical, 
   Eye, 
   Edit, 
   Trash2,
@@ -61,23 +60,17 @@ const formatCurrency = (amount: number): string => {
 interface AnimatedCariRowProps {
   cari: CariData
   index: number
-  activeMenu: string | null
-  setActiveMenu: (id: string | null) => void
   onViewEkstre: (id: string) => void
   onDelete: (id: string) => void
   onEdit: (cari: CariData) => void
-  totalCount: number
 }
 
 const AnimatedCariRow: React.FC<AnimatedCariRowProps> = ({ 
   cari, 
   index, 
-  activeMenu, 
-  setActiveMenu, 
   onViewEkstre,
   onDelete,
-  onEdit,
-  totalCount
+  onEdit
 }) => {
   const rowRef = useRef<HTMLTableRowElement>(null)
   const [isVisible, setIsVisible] = useState(false)
@@ -126,7 +119,7 @@ const AnimatedCariRow: React.FC<AnimatedCariRowProps> = ({
         background: isHovered ? 'var(--bg-card-hover)' : 'transparent',
         boxShadow: isHovered ? '0 4px 12px rgba(99, 102, 241, 0.1)' : 'none',
         transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
-        zIndex: activeMenu === cari.id ? 50 : 1,
+        zIndex: 1,
         position: 'relative'
       }}
       onMouseEnter={() => setIsHovered(true)}
@@ -152,120 +145,82 @@ const AnimatedCariRow: React.FC<AnimatedCariRowProps> = ({
           {formatCurrency(cari.bakiye)} {cari.bakiye_turu}
         </span>
       </td>
-      <td style={{ textAlign: 'center', position: 'relative' }}>
-        <button
-          onClick={(e) => {
-            e.stopPropagation()
-            setActiveMenu(activeMenu === cari.id ? null : cari.id)
-          }}
-          style={{
-            padding: 8,
-            background: 'transparent',
-            border: 'none',
-            borderRadius: 6,
-            color: 'var(--text-secondary)',
-            cursor: 'pointer',
-            transition: 'all 0.15s ease'
-          }}
-        >
-          <MoreVertical size={18} />
-        </button>
-        
-        {activeMenu === cari.id && (
-          <div style={{
-            position: 'absolute',
-            right: 0,
-            top: index >= totalCount - 3 ? 'auto' : '100%',
-            bottom: index >= totalCount - 3 ? '100%' : 'auto',
-            marginBottom: index >= totalCount - 3 ? 4 : 0,
-            marginTop: index >= totalCount - 3 ? 0 : 4,
-            background: 'var(--bg-card)',
-            border: '1px solid var(--border-color)',
-            borderRadius: 8,
-            boxShadow: 'var(--shadow-lg)',
-            zIndex: 10,
-            minWidth: 160,
-            animation: 'fadeIn 0.2s ease'
-          }}>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onViewEkstre(cari.id)
-              }}
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '10px 14px',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-primary)',
-                fontSize: 14,
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'background 0.15s ease'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-card-hover)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-            >
-              <Eye size={16} />
-              Ekstre Görüntüle
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                onEdit(cari)
-              }}
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '10px 14px',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--text-primary)',
-                fontSize: 14,
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'background 0.15s ease'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-card-hover)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-            >
-              <Edit size={16} />
-              Düzenle
-            </button>
-            <button
-              onClick={(e) => {
-                e.stopPropagation()
-                if (confirm(`"${cari.unvan}" silinecek. Emin misiniz?`)) {
-                  onDelete(cari.id)
-                }
-              }}
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                gap: 10,
-                padding: '10px 14px',
-                background: 'transparent',
-                border: 'none',
-                color: 'var(--accent-danger)',
-                fontSize: 14,
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'background 0.15s ease'
-              }}
-              onMouseEnter={(e) => e.currentTarget.style.background = 'var(--bg-card-hover)'}
-              onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-            >
-              <Trash2 size={16} />
-              Sil
-            </button>
-          </div>
-        )}
+      <td style={{ textAlign: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onViewEkstre(cari.id)
+            }}
+            title="Ekstre Görüntüle"
+            style={{
+              padding: 6,
+              background: 'rgba(59, 130, 246, 0.1)',
+              border: 'none',
+              borderRadius: 6,
+              color: '#3b82f6',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.2)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(59, 130, 246, 0.1)'}
+          >
+            <Eye size={18} />
+          </button>
+          
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              onEdit(cari)
+            }}
+            title="Düzenle"
+            style={{
+              padding: 6,
+              background: 'rgba(245, 158, 11, 0.1)',
+              border: 'none',
+              borderRadius: 6,
+              color: '#f59e0b',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(245, 158, 11, 0.2)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(245, 158, 11, 0.1)'}
+          >
+            <Edit size={18} />
+          </button>
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              if (confirm(`"${cari.unvan}" silinecek. Emin misiniz?`)) {
+                onDelete(cari.id)
+              }
+            }}
+            title="Sil"
+            style={{
+              padding: 6,
+              background: 'rgba(239, 68, 68, 0.1)',
+              border: 'none',
+              borderRadius: 6,
+              color: '#ef4444',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s'
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.2)'}
+            onMouseLeave={e => e.currentTarget.style.background = 'rgba(239, 68, 68, 0.1)'}
+          >
+            <Trash2 size={18} />
+          </button>
+        </div>
       </td>
     </tr>
   )
@@ -281,7 +236,6 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
   const [searchTerm, setSearchTerm] = useState('')
   const [cariler, setCariler] = useState<CariData[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeMenu, setActiveMenu] = useState<string | null>(null)
   
   // Modal states
   const [showModal, setShowModal] = useState(false)
@@ -331,9 +285,8 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
 
   // Close menu when clicking outside
   useEffect(() => {
-    if (activeMenu || showFilterDropdown || showSortDropdown) {
+    if (showFilterDropdown || showSortDropdown) {
       const handleClickOutside = () => {
-        setActiveMenu(null)
         setShowFilterDropdown(false)
         setShowSortDropdown(false)
       }
@@ -341,7 +294,7 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
       return () => document.removeEventListener('click', handleClickOutside)
     }
     return undefined
-  }, [activeMenu, showFilterDropdown, showSortDropdown])
+  }, [showFilterDropdown, showSortDropdown])
 
   // Modal açma/kapatma
   const openNewCariModal = () => {
@@ -372,7 +325,6 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
       tip: cari.tip || 'DIGER'
     })
     setShowModal(true)
-    setActiveMenu(null)
   }
 
   const closeModal = () => {
@@ -404,7 +356,7 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
     try {
       if (editingCari) {
         // Cari güncelle
-        await window.db.updateCari(editingCari.id, {
+        const updatedCari = await window.db.updateCari(editingCari.id, {
           kod: formData.kod,
           unvan: formData.unvan,
           yetkili: formData.yetkili || undefined,
@@ -415,20 +367,14 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
           tip: formData.tip
         })
         
+        if (!updatedCari) {
+          throw new Error('Güncelleme başarısız oldu')
+        }
+        
         // State'i güncelle
         setCariler(prev => prev.map(c => 
           c.id === editingCari.id 
-            ? { 
-                ...c, 
-                kod: formData.kod,
-                unvan: formData.unvan,
-                yetkili: formData.yetkili || undefined,
-                telefon: formData.telefon || undefined,
-                adres: formData.adres || undefined,
-                vergi_dairesi: formData.vergiDairesi || undefined,
-                vergi_no: formData.vergiNo || undefined,
-                tip: formData.tip
-              }
+            ? updatedCari
             : c
         ))
       } else {
@@ -512,11 +458,16 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
 
   const handleDelete = async (cariId: string) => {
     try {
-      await window.db.deleteCari(cariId)
-      setCariler(prev => prev.filter(c => c.id !== cariId))
-      setActiveMenu(null)
+      const success = await window.db.deleteCari(cariId)
+      if (success) {
+        setCariler(prev => prev.filter(c => c.id !== cariId))
+        // Başarılı uyarısı opsiyonel
+      } else {
+        alert('Cari silinemedi! İşlem veritabanında gerçekleştirilemedi.')
+      }
     } catch (error) {
       console.error('Cari silinemedi:', error)
+      alert('Silme sırasında bir hata oluştu.')
     }
   }
 
@@ -600,7 +551,7 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
         </div>
       </div>
 
-      <div className="page-content" style={{ overflowY: 'auto', maxHeight: 'calc(100vh - 85px)' }}>
+      <div className="page-content" style={{ overflowY: 'auto', height: 'calc(100vh - 85px)', paddingBottom: 200 }}>
         {/* Summary Cards */}
         <div 
           className="animate-fade-in"
@@ -913,12 +864,9 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
                   key={cari.id}
                   cari={cari}
                   index={index}
-                  activeMenu={activeMenu}
-                  setActiveMenu={setActiveMenu}
                   onViewEkstre={handleViewEkstre}
                   onDelete={handleDelete}
                   onEdit={openEditCariModal}
-                  totalCount={filteredCariler.length}
                 />
               ))}
               {filteredCariler.length === 0 && !loading && (

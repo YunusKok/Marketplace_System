@@ -96,8 +96,29 @@ ipcMain.handle('db:deleteCari', async (_, id: string) => {
   const db = getDatabase()
   if (!db) return false
   
-  db.prepare('DELETE FROM cariler WHERE id = ?').run(id)
-  return true
+  try {
+    const transaction = db.transaction(() => {
+      // İlişkili kayıtları sil (Cascade Delete)
+      console.log('Deleting related records for cari:', id)
+      db.prepare('DELETE FROM hareketler WHERE cari_id = ?').run(id)
+      db.prepare('DELETE FROM cek_senet WHERE cari_id = ?').run(id)
+      db.prepare('DELETE FROM faturalar WHERE cari_id = ?').run(id)
+      db.prepare('DELETE FROM mustahsiller WHERE cari_id = ?').run(id)
+      db.prepare('DELETE FROM kasa WHERE cari_id = ?').run(id)
+      
+      // Cari kartını sil
+      console.log('Deleting cari card:', id)
+      const result = db.prepare('DELETE FROM cariler WHERE id = ?').run(id)
+      console.log('Delete result:', result)
+    })
+    
+    transaction()
+    console.log('Transaction completed successfully')
+    return true
+  } catch (error) {
+    console.error('Cari silme hatası:', error)
+    return false
+  }
 })
 
 // ===================================

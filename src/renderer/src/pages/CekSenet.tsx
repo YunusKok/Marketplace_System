@@ -5,7 +5,6 @@ import {
   Plus, 
   Search, 
   Trash2, 
-  MoreVertical, 
   Loader2,
   X,
   Check,
@@ -94,7 +93,7 @@ const CekSenet: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('')
   const [filterTip, setFilterTip] = useState<'ALL' | 'CEK' | 'SENET'>('ALL')
   const [filterDurum, setFilterDurum] = useState<'ALL' | 'BEKLEMEDE' | 'TAHSIL_EDILDI' | 'IPTAL'>('ALL')
-  const [activeMenu, setActiveMenu] = useState<string | null>(null)
+
   
   // Custom Filter Dropdown States
   const [showFilterTipDropdown, setShowFilterTipDropdown] = useState(false)
@@ -148,9 +147,8 @@ const CekSenet: React.FC = () => {
 
   // Close menu when clicking outside
   useEffect(() => {
-    if (activeMenu || showFilterTipDropdown || showFilterDurumDropdown) {
+    if (showFilterTipDropdown || showFilterDurumDropdown) {
       const handleClickOutside = () => {
-        setActiveMenu(null)
         setShowFilterTipDropdown(false)
         setShowFilterDurumDropdown(false)
       }
@@ -158,7 +156,7 @@ const CekSenet: React.FC = () => {
       return () => document.removeEventListener('click', handleClickOutside)
     }
     return undefined
-  }, [activeMenu, showFilterTipDropdown, showFilterDurumDropdown])
+  }, [showFilterTipDropdown, showFilterDurumDropdown])
 
   const fetchData = async () => {
     try {
@@ -177,15 +175,7 @@ const CekSenet: React.FC = () => {
     }
   }
 
-  // Close menu when clicking outside
-  useEffect(() => {
-    if (activeMenu) {
-      const handleClickOutside = () => setActiveMenu(null)
-      document.addEventListener('click', handleClickOutside)
-      return () => document.removeEventListener('click', handleClickOutside)
-    }
-    return undefined
-  }, [activeMenu])
+
 
   // Modal açma
   const openModal = (cekSenet?: CekSenet) => {
@@ -293,7 +283,7 @@ const CekSenet: React.FC = () => {
       ])
       setCekSenetler(newCekSenetler)
       setOzet(newOzet)
-      setActiveMenu(null)
+
     } catch (error) {
       console.error('Durum güncellenemedi:', error)
       alert('Durum güncellenirken bir hata oluştu')
@@ -708,7 +698,7 @@ const CekSenet: React.FC = () => {
                 <th>Vade Tarihi</th>
                 <th style={{ textAlign: 'right' }}>Tutar</th>
                 <th>Durum</th>
-                <th style={{ width: 50 }}></th>
+                <th style={{ width: 140 }}>İşlemler</th>
               </tr>
             </thead>
             <tbody>
@@ -749,61 +739,122 @@ const CekSenet: React.FC = () => {
                       </span>
                     </td>
                     <td>
-                      <button 
-                        className="icon-btn"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setActiveMenu(activeMenu === cs.id ? null : cs.id)
-                        }}
-                      >
-                        <MoreVertical size={18} />
-                      </button>
-                      
-                      {activeMenu === cs.id && (
-                        <div className="dropdown-menu">
-                          <button 
-                            className="dropdown-item"
-                            onClick={() => { setActiveMenu(null); openModal(cs) }}
-                          >
-                            <Edit size={16} />
-                            Düzenle
-                          </button>
-                          {cs.durum === 'BEKLEMEDE' && (
-                            <>
-                              <button 
-                                className="dropdown-item success"
-                                onClick={() => handleDurumChange(cs.id, 'TAHSIL_EDILDI')}
-                              >
-                                <Check size={16} />
-                                Tahsil Et
-                              </button>
-                              <button 
-                                className="dropdown-item warning"
-                                onClick={() => handleDurumChange(cs.id, 'IPTAL')}
-                              >
-                                <Ban size={16} />
-                                İptal Et
-                              </button>
-                            </>
-                          )}
-                          {cs.durum !== 'BEKLEMEDE' && (
-                            <button 
-                              className="dropdown-item"
-                              onClick={() => handleDurumChange(cs.id, 'BEKLEMEDE')}
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openModal(cs)
+                          }}
+                          title="Düzenle"
+                          style={{
+                            padding: 6,
+                            background: 'rgba(59, 130, 246, 0.1)',
+                            border: 'none',
+                            borderRadius: 6,
+                            color: '#3b82f6',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          <Edit size={16} />
+                        </button>
+
+                        {cs.durum === 'BEKLEMEDE' && (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDurumChange(cs.id, 'TAHSIL_EDILDI')
+                              }}
+                              title="Tahsil Et"
+                              style={{
+                                padding: 6,
+                                background: 'rgba(16, 185, 129, 0.1)',
+                                border: 'none',
+                                borderRadius: 6,
+                                color: '#10b981',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s'
+                              }}
                             >
-                              <Clock size={16} />
-                              Bekleyene Al
+                              <Check size={16} />
                             </button>
-                          )}
-                          <button 
-                            className="dropdown-item danger"
-                            onClick={() => handleDelete(cs.id)}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleDurumChange(cs.id, 'IPTAL')
+                              }}
+                              title="İptal Et"
+                              style={{
+                                padding: 6,
+                                background: 'rgba(239, 68, 68, 0.1)',
+                                border: 'none',
+                                borderRadius: 6,
+                                color: '#ef4444',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.2s'
+                              }}
+                            >
+                              <Ban size={16} />
+                            </button>
+                          </>
+                        )}
+
+                        {cs.durum !== 'BEKLEMEDE' && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDurumChange(cs.id, 'BEKLEMEDE')
+                            }}
+                            title="Beklemeye Al"
+                            style={{
+                              padding: 6,
+                              background: 'rgba(245, 158, 11, 0.1)',
+                              border: 'none',
+                              borderRadius: 6,
+                              color: '#f59e0b',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              transition: 'all 0.2s'
+                            }}
                           >
-                            <Trash2 size={16} />
-                            Sil
+                            <Clock size={16} />
                           </button>
-                        </div>
-                      )}
+                        )}
+
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleDelete(cs.id)
+                          }}
+                          title="Sil"
+                          style={{
+                            padding: 6,
+                            background: 'rgba(239, 68, 68, 0.1)',
+                            border: 'none',
+                            borderRadius: 6,
+                            color: '#ef4444',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))

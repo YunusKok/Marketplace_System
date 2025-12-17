@@ -33,6 +33,19 @@ export const initDatabase = (): Database.Database => {
   
   // Demo verileri ekle (sadece ilk kez)
   insertDemoData()
+
+  // Tutarlılık Kontrolü: Silinmiş carilere ait orphan kayıtları temizle
+  try {
+    console.log('Cleaning orphan records...')
+    db.prepare('DELETE FROM hareketler WHERE cari_id IS NOT NULL AND cari_id NOT IN (SELECT id FROM cariler)').run()
+    db.prepare('DELETE FROM cek_senet WHERE cari_id IS NOT NULL AND cari_id NOT IN (SELECT id FROM cariler)').run()
+    db.prepare('DELETE FROM faturalar WHERE cari_id IS NOT NULL AND cari_id NOT IN (SELECT id FROM cariler)').run()
+    db.prepare('DELETE FROM kasa WHERE cari_id IS NOT NULL AND cari_id NOT IN (SELECT id FROM cariler)').run()
+    db.prepare('DELETE FROM mustahsiller WHERE cari_id IS NOT NULL AND cari_id NOT IN (SELECT id FROM cariler)').run()
+    console.log('Orphan records cleaned.')
+  } catch (err) {
+    console.error('Cleanup error:', err)
+  }
   
   return db
 }

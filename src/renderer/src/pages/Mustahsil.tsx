@@ -11,7 +11,7 @@ import {
   FileText,
 
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 
 // Tipler
 interface CariSimple {
@@ -47,6 +47,7 @@ const formatCurrency = (amount: number): string => {
 
 const Mustahsil: React.FC = () => {
   const navigate = useNavigate()
+  const location = useLocation()
   
   // State
   const [cariler, setCariler] = useState<CariSimple[]>([])
@@ -99,6 +100,12 @@ const Mustahsil: React.FC = () => {
   useEffect(() => {
     loadCariler()
   }, [])
+
+  useEffect(() => {
+    if (location.state?.cariId) {
+      setSelectedCariId(location.state.cariId)
+    }
+  }, [location.state])
 
   useEffect(() => {
     if (selectedCariId) {

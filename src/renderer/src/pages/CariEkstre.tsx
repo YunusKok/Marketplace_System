@@ -18,7 +18,6 @@ import {
   TrendingDown,
   Users,
   Building2,
-  PlusCircle,
   Banknote,
   Wallet
 } from 'lucide-react'
@@ -640,9 +639,9 @@ const CariEkstre: React.FC = () => {
             <Calendar size={18} />
             Tarih Aralığı
           </button>
-          <button className="btn btn-primary" onClick={() => setShowTransactionModal(true)}>
-             <PlusCircle size={18} />
-             Yeni İşlem
+          <button className="btn btn-primary" onClick={() => navigate('/mustahsil', { state: { cariId: cari.id } })}>
+             <Wallet size={18} />
+             Cari Defteri
           </button>
           <button className="btn btn-secondary" onClick={handlePrint}>
             <Printer size={18} />
