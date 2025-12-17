@@ -116,7 +116,30 @@ const dbAPI = {
   
   // Auth
   login: (username: string, password: string) => 
-    ipcRenderer.invoke('db:login', username, password)
+    ipcRenderer.invoke('db:login', username, password),
+  
+  // Ayarlar işlemleri
+  getAyarlar: () => ipcRenderer.invoke('db:getAyarlar'),
+  getAyar: (anahtar: string) => ipcRenderer.invoke('db:getAyar', anahtar),
+  setAyar: (anahtar: string, deger: string) => ipcRenderer.invoke('db:setAyar', anahtar, deger),
+  setAyarlar: (ayarlar: Record<string, string>) => ipcRenderer.invoke('db:setAyarlar', ayarlar),
+  
+  // Kullanıcı yönetimi
+  getKullanicilar: () => ipcRenderer.invoke('db:getKullanicilar'),
+  addKullanici: (kullanici: {
+    kullaniciAdi: string
+    sifre: string
+    adSoyad: string
+    rol: string
+  }) => ipcRenderer.invoke('db:addKullanici', kullanici),
+  updateKullanici: (id: string, kullanici: Partial<{
+    kullaniciAdi: string
+    adSoyad: string
+    rol: string
+  }>) => ipcRenderer.invoke('db:updateKullanici', id, kullanici),
+  deleteKullanici: (id: string) => ipcRenderer.invoke('db:deleteKullanici', id),
+  changePassword: (id: string, eskiSifre: string, yeniSifre: string) => 
+    ipcRenderer.invoke('db:changePassword', id, eskiSifre, yeniSifre)
 }
 
 // Use `contextBridge` APIs to expose Electron APIs to

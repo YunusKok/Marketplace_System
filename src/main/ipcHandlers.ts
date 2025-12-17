@@ -848,5 +848,156 @@ ipcMain.handle('db:deleteCekSenet', async (_, id: string) => {
   return true
 })
 
+// ===================================
+// AYARLAR İŞLEMLERİ
+// ===================================
+
+// Tüm ayarları getir
+ipcMain.handle('db:getAyarlar', async () => {
+  const db = getDatabase()
+  if (!db) return {}
+  
+  const rows = db.prepare('SELECT anahtar, deger FROM ayarlar').all() as { anahtar: string; deger: string }[]
+  const ayarlar: Record<string, string> = {}
+  for (const row of rows) {
+    ayarlar[row.anahtar] = row.deger
+  }
+  return ayarlar
+})
+
+// Tek ayar getir
+ipcMain.handle('db:getAyar', async (_, anahtar: string) => {
+  const db = getDatabase()
+  if (!db) return null
+  
+  const row = db.prepare('SELECT deger FROM ayarlar WHERE anahtar = ?').get(anahtar) as { deger: string } | undefined
+  return row?.deger || null
+})
+
+// Ayar kaydet (insert or update)
+ipcMain.handle('db:setAyar', async (_, anahtar: string, deger: string) => {
+  const db = getDatabase()
+  if (!db) return false
+  
+  db.prepare(`
+    INSERT INTO ayarlar (anahtar, deger) VALUES (?, ?)
+    ON CONFLICT(anahtar) DO UPDATE SET deger = excluded.deger
+  `).run(anahtar, deger)
+  
+  return true
+})
+
+// Birden fazla ayarı kaydet
+ipcMain.handle('db:setAyarlar', async (_, ayarlar: Record<string, string>) => {
+  const db = getDatabase()
+  if (!db) return false
+  
+  const stmt = db.prepare(`
+    INSERT INTO ayarlar (anahtar, deger) VALUES (?, ?)
+    ON CONFLICT(anahtar) DO UPDATE SET deger = excluded.deger
+  `)
+  
+  const transaction = db.transaction(() => {
+    for (const [anahtar, deger] of Object.entries(ayarlar)) {
+      stmt.run(anahtar, deger)
+    }
+  })
+  
+  transaction()
+  return true
+})
+
+// ===================================
+// KULLANICI YÖNETİMİ
+// ===================================
+
+// Tüm kullanıcıları getir
+ipcMain.handle('db:getKullanicilar', async () => {
+  const db = getDatabase()
+  if (!db) return []
+  
+  return db.prepare(`
+    SELECT id, kullanici_adi, ad_soyad, rol, olusturma_tarihi FROM kullanicilar ORDER BY olusturma_tarihi
+  `).all()
+})
+
+// Kullanıcı ekle
+ipcMain.handle('db:addKullanici', async (_, kullanici: {
+  kullaniciAdi: string
+  sifre: string
+  adSoyad: string
+  rol: string
+}) => {
+  const db = getDatabase()
+  if (!db) return null
+  
+  const id = `u${Date.now()}`
+  
+  try {
+    db.prepare(`
+      INSERT INTO kullanicilar (id, kullanici_adi, sifre, ad_soyad, rol)
+      VALUES (?, ?, ?, ?, ?)
+    `).run(id, kullanici.kullaniciAdi, kullanici.sifre, kullanici.adSoyad, kullanici.rol)
+    
+    return db.prepare('SELECT id, kullanici_adi, ad_soyad, rol, olusturma_tarihi FROM kullanicilar WHERE id = ?').get(id)
+  } catch (error) {
+    console.error('Add user error:', error)
+    return null
+  }
+})
+
+// Kullanıcı güncelle
+ipcMain.handle('db:updateKullanici', async (_, id: string, kullanici: Partial<{
+  kullaniciAdi: string
+  adSoyad: string
+  rol: string
+}>) => {
+  const db = getDatabase()
+  if (!db) return null
+  
+  const updates: string[] = []
+  const values: string[] = []
+  
+  if (kullanici.kullaniciAdi) { updates.push('kullanici_adi = ?'); values.push(kullanici.kullaniciAdi) }
+  if (kullanici.adSoyad !== undefined) { updates.push('ad_soyad = ?'); values.push(kullanici.adSoyad) }
+  if (kullanici.rol) { updates.push('rol = ?'); values.push(kullanici.rol) }
+  
+  if (updates.length === 0) return db.prepare('SELECT id, kullanici_adi, ad_soyad, rol, olusturma_tarihi FROM kullanicilar WHERE id = ?').get(id)
+  
+  values.push(id)
+  
+  try {
+    db.prepare(`UPDATE kullanicilar SET ${updates.join(', ')} WHERE id = ?`).run(...values)
+    return db.prepare('SELECT id, kullanici_adi, ad_soyad, rol, olusturma_tarihi FROM kullanicilar WHERE id = ?').get(id)
+  } catch (error) {
+    console.error('Update user error:', error)
+    return null
+  }
+})
+
+// Kullanıcı sil
+ipcMain.handle('db:deleteKullanici', async (_, id: string) => {
+  const db = getDatabase()
+  if (!db) return false
+  
+  db.prepare('DELETE FROM kullanicilar WHERE id = ?').run(id)
+  return true
+})
+
+// Şifre değiştir
+ipcMain.handle('db:changePassword', async (_, id: string, eskiSifre: string, yeniSifre: string) => {
+  const db = getDatabase()
+  if (!db) return { success: false, error: 'Veritabanı bağlantısı yok' }
+  
+  // Eski şifreyi kontrol et
+  const user = db.prepare('SELECT id FROM kullanicilar WHERE id = ? AND sifre = ?').get(id, eskiSifre)
+  if (!user) {
+    return { success: false, error: 'Mevcut şifre hatalı' }
+  }
+  
+  db.prepare('UPDATE kullanicilar SET sifre = ? WHERE id = ?').run(yeniSifre, id)
+  return { success: true }
+})
+
 export {}
 

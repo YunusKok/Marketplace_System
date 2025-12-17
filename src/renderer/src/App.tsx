@@ -21,13 +21,31 @@ function App(): React.JSX.Element {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [username, setUsername] = useState('')
 
-  // LocalStorage'dan oturum bilgisini kontrol et
+  // LocalStorage'dan oturum bilgisini ve Veritabanından tema bilgisini kontrol et
   useEffect(() => {
+    // Oturum kontrolü
     const savedUser = localStorage.getItem('hal_user')
     if (savedUser) {
       setUsername(savedUser)
       setIsAuthenticated(true)
     }
+
+    // Tema kontrolü
+    const loadTheme = async () => {
+      try {
+        const savedTheme = await window.db.getAyar('theme')
+        if (savedTheme) {
+          document.documentElement.setAttribute('data-theme', savedTheme)
+        } else {
+          // Varsayılan tema dark
+          document.documentElement.setAttribute('data-theme', 'dark')
+        }
+      } catch (error) {
+        console.error('Tema yüklenemedi:', error)
+        document.documentElement.setAttribute('data-theme', 'dark')
+      }
+    }
+    loadTheme()
   }, [])
 
   const handleLogin = (user: string) => {

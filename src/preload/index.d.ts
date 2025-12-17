@@ -246,6 +246,37 @@ interface DatabaseAPI {
   
   // Auth
   login: (username: string, password: string) => Promise<UserData | null>
+  
+  // Ayarlar işlemleri
+  getAyarlar: () => Promise<Record<string, string>>
+  getAyar: (anahtar: string) => Promise<string | null>
+  setAyar: (anahtar: string, deger: string) => Promise<boolean>
+  setAyarlar: (ayarlar: Record<string, string>) => Promise<boolean>
+  
+  // Kullanıcı yönetimi
+  getKullanicilar: () => Promise<KullaniciData[]>
+  addKullanici: (kullanici: {
+    kullaniciAdi: string
+    sifre: string
+    adSoyad: string
+    rol: string
+  }) => Promise<KullaniciData | null>
+  updateKullanici: (id: string, kullanici: Partial<{
+    kullaniciAdi: string
+    adSoyad: string
+    rol: string
+  }>) => Promise<KullaniciData | null>
+  deleteKullanici: (id: string) => Promise<boolean>
+  changePassword: (id: string, eskiSifre: string, yeniSifre: string) => Promise<{ success: boolean; error?: string }>
+}
+
+// Kullanıcı yönetim tipi
+interface KullaniciData {
+  id: string
+  kullanici_adi: string
+  ad_soyad: string
+  rol: string
+  olusturma_tarihi?: string
 }
 
 declare global {
@@ -255,4 +286,4 @@ declare global {
   }
 }
 
-export { CariData, HareketData, FaturaData, MustahsilData, KasaIslemData, KasaBakiyeData, CekSenetData, CekSenetOzetData, DashboardStats, ExportResult, UserData, DatabaseAPI }
+export { CariData, HareketData, FaturaData, MustahsilData, KasaIslemData, KasaBakiyeData, CekSenetData, CekSenetOzetData, DashboardStats, ExportResult, UserData, KullaniciData, DatabaseAPI }
