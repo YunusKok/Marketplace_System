@@ -12,6 +12,7 @@ interface CariData {
   vergi_no?: string
   bakiye: number
   bakiye_turu: string
+  tip?: string
   olusturma_tarihi?: string
   guncelleme_tarihi?: string
 }
@@ -155,6 +156,7 @@ interface DatabaseAPI {
     adres?: string
     vergiDairesi?: string
     vergiNo?: string
+    tip?: string
   }) => Promise<CariData | null>
   updateCari: (id: string, cari: Partial<{
     kod: string
@@ -164,6 +166,7 @@ interface DatabaseAPI {
     adres?: string
     vergiDairesi?: string
     vergiNo?: string
+    tip?: string
     bakiye: number
     bakiyeTuru: string
   }>) => Promise<CariData | null>
@@ -175,10 +178,18 @@ interface DatabaseAPI {
     cariId: string
     tarih: string
     aciklama: string
+    partiNo?: string
+    miktar?: number
+    birimFiyat?: number
     borc: number
     alacak: number
     islemTipi: string
+    odemeTuru?: 'NAKIT' | 'HAVALE' | 'CEK' | 'SENET'
+    belgeNo?: string
+    vadeTarihi?: string
+    banka?: string
   }) => Promise<HareketData | null>
+  deleteHareket: (id: string) => Promise<boolean>
   
   // Dashboard
   getDashboardStats: () => Promise<DashboardStats | null>
@@ -186,6 +197,7 @@ interface DatabaseAPI {
   // Excel export
   exportToExcel: (tableName: string, fileName?: string) => Promise<ExportResult>
   exportCariEkstre: (cariId: string) => Promise<ExportResult>
+  exportDataToExcel: (data: any[], fileName: string) => Promise<ExportResult>
   
   // Fatura işlemleri
   getFaturalar: () => Promise<FaturaData[]>

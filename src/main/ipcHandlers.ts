@@ -38,6 +38,7 @@ ipcMain.handle('db:addCari', async (_, cari: {
   adres?: string
   vergiDairesi?: string
   vergiNo?: string
+  tip?: string
 }) => {
   const db = getDatabase()
   if (!db) return null
@@ -45,9 +46,9 @@ ipcMain.handle('db:addCari', async (_, cari: {
   const id = `c${Date.now()}`
   
   db.prepare(`
-    INSERT INTO cariler (id, kod, unvan, yetkili, telefon, adres, vergi_dairesi, vergi_no)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, cari.kod, cari.unvan, cari.yetkili, cari.telefon, cari.adres, cari.vergiDairesi, cari.vergiNo)
+    INSERT INTO cariler (id, kod, unvan, yetkili, telefon, adres, vergi_dairesi, vergi_no, tip)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(id, cari.kod, cari.unvan, cari.yetkili, cari.telefon, cari.adres, cari.vergiDairesi, cari.vergiNo, cari.tip || 'DIGER')
   
   return db.prepare('SELECT * FROM cariler WHERE id = ?').get(id)
 })
@@ -63,6 +64,7 @@ ipcMain.handle('db:updateCari', async (_, id: string, cari: Partial<{
   vergiNo?: string
   bakiye: number
   bakiyeTuru: string
+  tip: string
 }>) => {
   const db = getDatabase()
   if (!db) return null
@@ -79,6 +81,7 @@ ipcMain.handle('db:updateCari', async (_, id: string, cari: Partial<{
   if (cari.vergiNo !== undefined) { updates.push('vergi_no = ?'); values.push(cari.vergiNo || '') }
   if (cari.bakiye !== undefined) { updates.push('bakiye = ?'); values.push(cari.bakiye) }
   if (cari.bakiyeTuru !== undefined) { updates.push('bakiye_turu = ?'); values.push(cari.bakiyeTuru) }
+  if (cari.tip !== undefined) { updates.push('tip = ?'); values.push(cari.tip) }
   
   updates.push("guncelleme_tarihi = datetime('now')")
   values.push(id)
@@ -121,50 +124,199 @@ ipcMain.handle('db:getHareketler', async (_, cariId?: string) => {
 })
 
 // Hareket ekle
+// Hareket ekle
 ipcMain.handle('db:addHareket', async (_, hareket: {
   cariId: string
   tarih: string
   aciklama: string
+  partiNo?: string
+  miktar?: number
+  birimFiyat?: number
   borc: number
   alacak: number
   islemTipi: string
+  // Entegrasyon parametreleri
+  odemeTuru?: 'NAKIT' | 'HAVALE' | 'CEK' | 'SENET'
+  belgeNo?: string // Çek/Senet no
+  vadeTarihi?: string // Çek/Senet vade
+  banka?: string // Çek banka
 }) => {
   const db = getDatabase()
   if (!db) return null
   
   const id = `h${Date.now()}`
   
-  // Önceki bakiyeyi al
-  const sonHareket = db.prepare(`
-    SELECT bakiye, bakiye_turu FROM hareketler 
-    WHERE cari_id = ? ORDER BY olusturma_tarihi DESC LIMIT 1
-  `).get(hareket.cariId) as { bakiye: number; bakiye_turu: string } | undefined
+  const transaction = db.transaction(() => {
+    // 1. Hareket Ekle
+    // Önceki bakiyeyi al
+    const sonHareket = db.prepare(`
+      SELECT bakiye, bakiye_turu FROM hareketler 
+      WHERE cari_id = ? ORDER BY olusturma_tarihi DESC LIMIT 1
+    `).get(hareket.cariId) as { bakiye: number; bakiye_turu: string } | undefined
+    
+    let mevcutNetBakiye = 0
+    if (sonHareket) {
+      if (sonHareket.bakiye_turu === 'A') {
+        mevcutNetBakiye = sonHareket.bakiye
+      } else {
+        mevcutNetBakiye = -sonHareket.bakiye
+      }
+    }
+    
+    // Bakiye hesapla (Alacak +, Borç -)
+    const yeniNetBakiye = mevcutNetBakiye + hareket.alacak - hareket.borc
+    
+    let bakiyeTuru = 'A'
+    let yeniBakiye = yeniNetBakiye
+    
+    if (yeniNetBakiye < 0) {
+      bakiyeTuru = 'B'
+      yeniBakiye = Math.abs(yeniNetBakiye)
+    }
+    
+    db.prepare(`
+      INSERT INTO hareketler (id, cari_id, tarih, aciklama, parti_no, miktar, birim_fiyat, borc, alacak, bakiye, bakiye_turu, islem_tipi)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      id, 
+      hareket.cariId, 
+      hareket.tarih, 
+      hareket.aciklama, 
+      hareket.partiNo || '',
+      hareket.miktar || 0,
+      hareket.birimFiyat || 0,
+      hareket.borc, 
+      hareket.alacak, 
+      yeniBakiye, 
+      bakiyeTuru, 
+      hareket.islemTipi
+    )
+    
+    // 2. Cari bakiyesini güncelle
+    db.prepare(`
+      UPDATE cariler SET bakiye = ?, bakiye_turu = ?, guncelleme_tarihi = datetime('now')
+      WHERE id = ?
+    `).run(yeniBakiye, bakiyeTuru, hareket.cariId)
+
+    // 3. Entegrasyonlar
+    if (hareket.odemeTuru) {
+      const tutar = hareket.borc > 0 ? hareket.borc : hareket.alacak
+      
+      // Kasa Entegrasyonu (Nakit/Havale)
+      if (hareket.odemeTuru === 'NAKIT' || hareket.odemeTuru === 'HAVALE') {
+        // Alacak (bize giren para) -> TAHSILAT
+        // Borç (bizden çıkan para) -> ODEME
+        // DİKKAT: Hareket tablosunda Müşteri Bakış açısı var mı?
+        // Hareket: Müşteri Borçlandı (Satış yaptık) -> Para girmedi
+        // Hareket: Müşteri Alacaklandı (Tahsilat yaptık) -> Kasa'ya para girer (TAHSILAT)
+        
+        // Hareket.alacak > 0 => Müşteri ödeme yaptı (Biz tahsil ettik) => Kasa TAHSILAT
+        // Hareket.borc > 0 => Müşteriye ödeme yaptık (Biz ödedik) => Kasa ODEME
+        
+        let kasaIslemTipi = ''
+        if (hareket.alacak > 0) kasaIslemTipi = 'TAHSILAT'
+        else if (hareket.borc > 0) kasaIslemTipi = 'ODEME'
+        
+        if (kasaIslemTipi) {
+          db.prepare(`
+            INSERT INTO kasa (id, cari_id, tarih, aciklama, tutar, islem_tipi)
+            VALUES (?, ?, ?, ?, ?, ?)
+          `).run(
+            `k${Date.now()}`,
+            hareket.cariId,
+            hareket.tarih,
+            `${hareket.odemeTuru} - ${hareket.aciklama}`,
+            tutar,
+            kasaIslemTipi
+          )
+        }
+      }
+      
+      // Çek/Senet Entegrasyonu
+      else if (hareket.odemeTuru === 'CEK' || hareket.odemeTuru === 'SENET') {
+        // Alacak > 0 => Müşteri çek verdi => ALINAN ÇEK
+        // Borç > 0 => Müşteriye çek verdik => VERİLEN ÇEK
+        
+        let yon = ''
+        if (hareket.alacak > 0) yon = 'ALINAN'
+        else if (hareket.borc > 0) yon = 'VERILEN'
+        
+        if (yon) {
+          db.prepare(`
+            INSERT INTO cek_senet (id, cari_id, tip, yon, numara, banka, vade_tarihi, tutar, durum, aciklama)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `).run(
+            `cs${Date.now()}`,
+            hareket.cariId,
+            hareket.odemeTuru, // CEK veya SENET
+            yon,
+            hareket.belgeNo || '',
+            hareket.banka || '',
+            hareket.vadeTarihi || hareket.tarih,
+            tutar,
+            'BEKLEMEDE',
+            hareket.aciklama
+          )
+        }
+      }
+    }
+  })
   
-  let yeniBakiye = sonHareket?.bakiye || 0
-  let bakiyeTuru = sonHareket?.bakiye_turu || 'A'
-  
-  // Bakiye hesapla (Alacak +, Borç -)
-  yeniBakiye = yeniBakiye + hareket.alacak - hareket.borc
-  
-  if (yeniBakiye < 0) {
-    bakiyeTuru = 'B'
-    yeniBakiye = Math.abs(yeniBakiye)
-  } else {
-    bakiyeTuru = 'A'
-  }
-  
-  db.prepare(`
-    INSERT INTO hareketler (id, cari_id, tarih, aciklama, borc, alacak, bakiye, bakiye_turu, islem_tipi)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(id, hareket.cariId, hareket.tarih, hareket.aciklama, hareket.borc, hareket.alacak, yeniBakiye, bakiyeTuru, hareket.islemTipi)
-  
-  // Cari bakiyesini güncelle
-  db.prepare(`
-    UPDATE cariler SET bakiye = ?, bakiye_turu = ?, guncelleme_tarihi = datetime('now')
-    WHERE id = ?
-  `).run(yeniBakiye, bakiyeTuru, hareket.cariId)
+  transaction()
   
   return db.prepare('SELECT * FROM hareketler WHERE id = ?').get(id)
+})
+
+// Hareket sil
+ipcMain.handle('db:deleteHareket', async (_, id: string) => {
+  const db = getDatabase()
+  if (!db) return false
+  
+  const transaction = db.transaction(() => {
+    // 1. Silinecek hareketi bul
+    const hareket = db.prepare('SELECT * FROM hareketler WHERE id = ?').get(id) as any
+    if (!hareket) return
+
+    // 2. Bakiyeyi geri al (Ters işlem)
+    // Eğer hareket BORÇ ise, bakiye artmalı (çünkü borç silindi, alacak/borç dengesi değişti)
+    // Eğer hareket ALACAK ise, bakiye azalmalı
+    
+    // Mevcut cari durumu
+    const cari = db.prepare('SELECT bakiye, bakiye_turu FROM cariler WHERE id = ?').get(hareket.cari_id) as any
+    let mevcutNetBakiye = cari.bakiye_turu === 'A' ? cari.bakiye : -cari.bakiye
+    
+    // Silinen hareketin etkisi:
+    // Borç hareketi silinirse: (+ Borç) kadar ekle? Hayır.
+    // Hareket eklendiğinde: NetBakiye = Eski + Alacak - Borç
+    // Hareket silindiğinde: YeniNetBakiye = MevcutNetBakiye - Alacak + Borç
+    
+    const yeniNetBakiye = mevcutNetBakiye - hareket.alacak + hareket.borc
+    
+    let bakiyeTuru = 'A'
+    let yeniMutlakBakiye = yeniNetBakiye
+    
+    if (yeniNetBakiye < 0) {
+      bakiyeTuru = 'B'
+      yeniMutlakBakiye = Math.abs(yeniNetBakiye)
+    }
+    
+    // 3. Hareketi sil
+    db.prepare('DELETE FROM hareketler WHERE id = ?').run(id)
+    
+    // 4. Cariyi güncelle
+    db.prepare(`
+      UPDATE cariler SET bakiye = ?, bakiye_turu = ?, guncelleme_tarihi = datetime('now')
+      WHERE id = ?
+    `).run(yeniMutlakBakiye, bakiyeTuru, hareket.cari_id)
+  })
+  
+  try {
+    transaction()
+    return true
+  } catch (error) {
+    console.error('Hareket silme hatası:', error)
+    return false
+  }
 })
 
 // ===================================
@@ -269,10 +421,18 @@ ipcMain.handle('db:exportCariEkstre', async (_, cariId: string) => {
     if (!cari) return { success: false, error: 'Cari bulunamadı' }
     
     const hareketler = db.prepare(`
-      SELECT tarih, aciklama, borc, alacak, bakiye, bakiye_turu, islem_tipi 
+      SELECT 
+        tarih as Tarih, 
+        parti_no as Parti, 
+        miktar as Kg,
+        birim_fiyat as Fiyat,
+        borc as Borc, 
+        alacak as Alacak, 
+        bakiye as Bakiye,
+        bakiye_turu as BakiyeTuru
       FROM hareketler 
       WHERE cari_id = ? 
-      ORDER BY tarih DESC
+      ORDER BY olusturma_tarihi ASC
     `).all(cariId)
     
     // Excel oluştur
@@ -282,6 +442,36 @@ ipcMain.handle('db:exportCariEkstre', async (_, cariId: string) => {
     
     // Dosya kaydet dialog
     const defaultPath = join(app.getPath('documents'), `${cari.kod}_${cari.unvan}_ekstre.xlsx`)
+    
+    const result = await dialog.showSaveDialog({
+      defaultPath,
+      filters: [{ name: 'Excel Dosyası', extensions: ['xlsx'] }]
+    })
+    
+    if (result.canceled || !result.filePath) {
+      return { success: false, error: 'İptal edildi' }
+    }
+    
+    const buffer = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' })
+    writeFileSync(result.filePath, buffer)
+    
+    return { success: true, filePath: result.filePath }
+  } catch (error) {
+    console.error('Excel export error:', error)
+    return { success: false, error: String(error) }
+  }
+})
+
+// Verilen datayı Excel olarak export et (Generic)
+ipcMain.handle('db:exportDataToExcel', async (_, data: any[], fileName: string) => {
+  try {
+    // Excel oluştur
+    const worksheet = XLSX.utils.json_to_sheet(data)
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Data')
+    
+    // Dosya kaydet dialog
+    const defaultPath = join(app.getPath('documents'), fileName)
     
     const result = await dialog.showSaveDialog({
       defaultPath,

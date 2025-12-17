@@ -14,6 +14,7 @@ const dbAPI = {
     adres?: string
     vergiDairesi?: string
     vergiNo?: string
+    tip?: string
   }) => ipcRenderer.invoke('db:addCari', cari),
   updateCari: (id: string, cari: Partial<{
     kod: string
@@ -25,6 +26,7 @@ const dbAPI = {
     vergiNo?: string
     bakiye: number
     bakiyeTuru: string
+    tip: string
   }>) => ipcRenderer.invoke('db:updateCari', id, cari),
   deleteCari: (id: string) => ipcRenderer.invoke('db:deleteCari', id),
   
@@ -34,10 +36,18 @@ const dbAPI = {
     cariId: string
     tarih: string
     aciklama: string
+    partiNo?: string
+    miktar?: number
+    birimFiyat?: number
     borc: number
     alacak: number
     islemTipi: string
+    odemeTuru?: 'NAKIT' | 'HAVALE' | 'CEK' | 'SENET'
+    belgeNo?: string
+    vadeTarihi?: string
+    banka?: string
   }) => ipcRenderer.invoke('db:addHareket', hareket),
+  deleteHareket: (id: string) => ipcRenderer.invoke('db:deleteHareket', id),
   
   // Dashboard
   getDashboardStats: () => ipcRenderer.invoke('db:getDashboardStats'),
@@ -47,6 +57,8 @@ const dbAPI = {
     ipcRenderer.invoke('db:exportToExcel', tableName, fileName),
   exportCariEkstre: (cariId: string) => 
     ipcRenderer.invoke('db:exportCariEkstre', cariId),
+  exportDataToExcel: (data: any[], fileName: string) => 
+    ipcRenderer.invoke('db:exportDataToExcel', data, fileName),
   
   // Fatura işlemleri
   getFaturalar: () => ipcRenderer.invoke('db:getFaturalar'),

@@ -17,7 +17,10 @@ import {
   TrendingUp,
   TrendingDown,
   Users,
-  Building2
+  Building2,
+  PlusCircle,
+  Banknote,
+  Wallet
 } from 'lucide-react'
 
 // Database'den gelen veri tipleri
@@ -96,59 +99,69 @@ const CariEkstre: React.FC = () => {
   const [appliedStartDate, setAppliedStartDate] = useState('')
   const [appliedEndDate, setAppliedEndDate] = useState('')
 
-  useEffect(() => {
-    const loadData = async () => {
-      setLoading(true)
-      try {
-        if (!cariId) {
-          // Load list for selection
-          const carilerData = await window.db.getCariler()
-          setAllCariler(carilerData)
-          setLoading(false)
-          return
-        }
+  // Transaction Modal State
+  const [showTransactionModal, setShowTransactionModal] = useState(false)
+  const [transactionForm, setTransactionForm] = useState({
+    tip: 'TAHSILAT' as 'TAHSILAT' | 'ODEME',
+    tutar: '',
+    aciklama: ''
+  })
+  const [transactionLoading, setTransactionLoading] = useState(false)
 
-        setError(null)
-
-        // Cari bilgilerini getir
-        const cariData = await window.db.getCari(cariId)
-        if (!cariData) {
-          setError('Cari bulunamadı')
-          setLoading(false)
-          return
-        }
-        setCari(cariData)
-
-        // Hareketleri getir
-        const hareketlerData = await window.db.getHareketler(cariId)
-        setHareketler(hareketlerData || [])
-        
-        // Set initial date range (first and last hareket dates)
-        if (hareketlerData && hareketlerData.length > 0) {
-          const dates = hareketlerData.map(h => parseDate(h.tarih)).sort((a, b) => a.getTime() - b.getTime())
-          const firstDate = dates[0]
-          const lastDate = dates[dates.length - 1]
-          
-          const formatForInput = (d: Date) => {
-            const year = d.getFullYear()
-            const month = String(d.getMonth() + 1).padStart(2, '0')
-            const day = String(d.getDate()).padStart(2, '0')
-            return `${year}-${month}-${day}`
-          }
-          
-          setStartDate(formatForInput(firstDate))
-          setEndDate(formatForInput(lastDate))
-        }
-      } catch (err) {
-        console.error('Veri yüklenirken hata:', err)
-        setError('Veriler yüklenirken bir hata oluştu')
-      } finally {
+  const loadData = React.useCallback(async () => {
+    setLoading(true)
+    try {
+      if (!cariId) {
+        // Load list for selection
+        const carilerData = await window.db.getCariler()
+        setAllCariler(carilerData)
         setLoading(false)
+        return
       }
-    }
 
-    loadData()
+      setError(null)
+
+      // Cari bilgilerini getir
+      const cariData = await window.db.getCari(cariId)
+      if (!cariData) {
+        setError('Cari bulunamadı')
+        setLoading(false)
+        return
+      }
+      setCari(cariData)
+
+      // Hareketleri getir
+      const hareketlerData = await window.db.getHareketler(cariId)
+      setHareketler(hareketlerData || [])
+      
+      // Set initial date range (first and last hareket dates)
+      if (hareketlerData && hareketlerData.length > 0) {
+        const dates = hareketlerData.map(h => parseDate(h.tarih)).sort((a, b) => a.getTime() - b.getTime())
+        const firstDate = dates[0]
+        const lastDate = dates[dates.length - 1]
+        
+        const formatForInput = (d: Date) => {
+          const year = d.getFullYear()
+          const month = String(d.getMonth() + 1).padStart(2, '0')
+          const day = String(d.getDate()).padStart(2, '0')
+          return `${year}-${month}-${day}`
+        }
+        
+        // Only set if not already set to avoid overwriting user selection on refresh
+        setStartDate(prev => prev || formatForInput(firstDate))
+        setEndDate(prev => prev || formatForInput(lastDate))
+      }
+    } catch (err) {
+      console.error('Veri yüklenirken hata:', err)
+      setError('Veriler yüklenirken bir hata oluştu')
+    } finally {
+      setLoading(false)
+    }
   }, [cariId])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   // Filtered Cariler for Selection Mode
   const filteredCariler = useMemo(() => {
@@ -257,6 +270,35 @@ const CariEkstre: React.FC = () => {
     }
   }
 
+  // Handle Transaction Submit
+  const handleTransactionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!transactionForm.tutar || parseFloat(transactionForm.tutar) <= 0) {
+      alert('Geçerli bir tutar giriniz')
+      return
+    }
+
+    setTransactionLoading(true)
+    try {
+      await window.db.addKasaIslem({
+        cariId: cariId!,
+        tarih: new Date().toLocaleDateString('tr-TR'),
+        aciklama: transactionForm.aciklama || (transactionForm.tip === 'TAHSILAT' ? 'Tahsilat' : 'Ödeme'),
+        tutar: parseFloat(transactionForm.tutar),
+        islemTipi: transactionForm.tip
+      })
+      
+      setShowTransactionModal(false)
+      setTransactionForm({ tip: 'TAHSILAT', tutar: '', aciklama: '' })
+      loadData() // Refresh data
+    } catch (error) {
+      console.error('İşlem hatası:', error)
+      alert('İşlem kaydedilirken bir hata oluştu')
+    } finally {
+      setTransactionLoading(false)
+    }
+  }
+
   // Print
   const handlePrint = () => {
     window.print()
@@ -351,8 +393,14 @@ const CariEkstre: React.FC = () => {
                   backdropFilter: 'blur(10px)',
                   borderRadius: 12,
                   padding: 16,
-                  border: '1px solid rgba(255, 255, 255, 0.1)'
-                }}>
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s'
+                }}
+                onClick={() => navigate('/cariler', { state: { filter: 'all' } })}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <Users size={16} color="var(--accent-primary)" />
                     <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Toplam Cari</span>
@@ -365,8 +413,14 @@ const CariEkstre: React.FC = () => {
                   backdropFilter: 'blur(10px)',
                   borderRadius: 12,
                   padding: 16,
-                  border: '1px solid rgba(255, 255, 255, 0.1)'
-                }}>
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s'
+                }}
+                onClick={() => navigate('/cariler', { state: { filter: 'borclu' } })}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <TrendingDown size={16} color="var(--accent-danger)" />
                     <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Borçlu</span>
@@ -379,8 +433,14 @@ const CariEkstre: React.FC = () => {
                   backdropFilter: 'blur(10px)',
                   borderRadius: 12,
                   padding: 16,
-                  border: '1px solid rgba(255, 255, 255, 0.1)'
-                }}>
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  cursor: 'pointer',
+                  transition: 'transform 0.2s'
+                }}
+                onClick={() => navigate('/cariler', { state: { filter: 'alacakli' } })}
+                onMouseEnter={(e) => e.currentTarget.style.transform = 'translateY(-2px)'}
+                onMouseLeave={(e) => e.currentTarget.style.transform = 'translateY(0)'}
+                >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
                     <TrendingUp size={16} color="var(--accent-success)" />
                     <span style={{ fontSize: 12, color: 'var(--text-secondary)' }}>Alacaklı</span>
@@ -580,6 +640,10 @@ const CariEkstre: React.FC = () => {
             <Calendar size={18} />
             Tarih Aralığı
           </button>
+          <button className="btn btn-primary" onClick={() => setShowTransactionModal(true)}>
+             <PlusCircle size={18} />
+             Yeni İşlem
+          </button>
           <button className="btn btn-secondary" onClick={handlePrint}>
             <Printer size={18} />
             Yazdır
@@ -718,7 +782,7 @@ const CariEkstre: React.FC = () => {
             background: 'radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%)',
             borderRadius: '50%'
           }} />
-          
+            
           <div style={{ position: 'relative', zIndex: 1 }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -1018,6 +1082,115 @@ const CariEkstre: React.FC = () => {
                 Uygula
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* TRANSACTION MODAL */}
+      {showTransactionModal && (
+        <div className="modal-overlay">
+          <div className="modal-content" style={{ width: 450 }}>
+            <div className="modal-header">
+              <h3>Yeni Finansal İşlem</h3>
+              <button 
+                className="modal-close" 
+                onClick={() => setShowTransactionModal(false)}
+                disabled={transactionLoading}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <form onSubmit={handleTransactionSubmit} className="modal-body">
+              <div style={{ display: 'flex', gap: 10, marginBottom: 20 }}>
+                <button
+                  type="button"
+                  onClick={() => setTransactionForm(p => ({ ...p, tip: 'TAHSILAT' }))}
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    borderRadius: 8,
+                    border: transactionForm.tip === 'TAHSILAT' ? '2px solid #22c55e' : '1px solid var(--border-color)',
+                    background: transactionForm.tip === 'TAHSILAT' ? 'rgba(34, 197, 94, 0.15)' : 'var(--bg-default)',
+                    color: transactionForm.tip === 'TAHSILAT' ? '#16a34a' : 'var(--text-secondary)',
+                    fontWeight: 600,
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8
+                  }}
+                >
+                  <Wallet size={18} />
+                  Tahsilat Al
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTransactionForm(p => ({ ...p, tip: 'ODEME' }))}
+                  style={{
+                    flex: 1,
+                    padding: 12,
+                    borderRadius: 8,
+                    border: transactionForm.tip === 'ODEME' ? '2px solid #ef4444' : '1px solid var(--border-color)',
+                    background: transactionForm.tip === 'ODEME' ? 'rgba(239, 68, 68, 0.15)' : 'var(--bg-default)',
+                    color: transactionForm.tip === 'ODEME' ? '#ef4444' : 'var(--text-secondary)',
+                    fontWeight: 600,
+                    fontSize: 13,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 8
+                  }}
+                >
+                  <Banknote size={18} />
+                  Ödeme Yap
+                </button>
+              </div>
+
+              <div className="form-group">
+                <label>Tutar</label>
+                <div style={{ position: 'relative' }}>
+                  <input 
+                    type="number" 
+                    step="0.01"
+                    min="0"
+                    placeholder="0.00"
+                    value={transactionForm.tutar}
+                    onChange={e => setTransactionForm(p => ({ ...p, tutar: e.target.value }))}
+                    className="form-input"
+                    style={{ paddingRight: 30, fontSize: 18, fontWeight: 600 }}
+                    autoFocus
+                    required
+                  />
+                  <span style={{ position: 'absolute', right: 12, top: 12, color: 'var(--text-muted)' }}>₺</span>
+                </div>
+              </div>
+
+              <div className="form-group">
+                <label>Açıklama</label>
+                <input 
+                  type="text" 
+                  placeholder={transactionForm.tip === 'TAHSILAT' ? 'Örn: Nakit Tahsilat' : 'Örn: Nakit Ödeme'}
+                  value={transactionForm.aciklama}
+                  onChange={e => setTransactionForm(p => ({ ...p, aciklama: e.target.value }))}
+                  className="form-input"
+                />
+              </div>
+
+              <button 
+                type="submit" 
+                className={`btn w-full ${transactionForm.tip === 'TAHSILAT' ? 'btn-success' : 'btn-danger'}`}
+                style={{ marginTop: 10, padding: 12 }}
+                disabled={transactionLoading}
+              >
+                {transactionLoading ? <Loader2 size={20} className="spin" /> : (
+                  transactionForm.tip === 'TAHSILAT' ? 'Tahsilatı Kaydet' : 'Ödemeyi Kaydet'
+                )}
+              </button>
+            </form>
           </div>
         </div>
       )}

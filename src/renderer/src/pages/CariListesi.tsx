@@ -27,6 +27,7 @@ interface CariData {
   vergi_no?: string
   bakiye: number
   bakiye_turu: string
+  tip?: string
 }
 
 // Sıralama seçenekleri
@@ -45,6 +46,7 @@ interface CariFormData {
   adres: string
   vergiDairesi: string
   vergiNo: string
+  tip: string
 }
 
 const formatCurrency = (amount: number): string => {
@@ -64,6 +66,7 @@ interface AnimatedCariRowProps {
   onViewEkstre: (id: string) => void
   onDelete: (id: string) => void
   onEdit: (cari: CariData) => void
+  totalCount: number
 }
 
 const AnimatedCariRow: React.FC<AnimatedCariRowProps> = ({ 
@@ -73,7 +76,8 @@ const AnimatedCariRow: React.FC<AnimatedCariRowProps> = ({
   setActiveMenu, 
   onViewEkstre,
   onDelete,
-  onEdit
+  onEdit,
+  totalCount
 }) => {
   const rowRef = useRef<HTMLTableRowElement>(null)
   const [isVisible, setIsVisible] = useState(false)
@@ -122,6 +126,8 @@ const AnimatedCariRow: React.FC<AnimatedCariRowProps> = ({
         background: isHovered ? 'var(--bg-card-hover)' : 'transparent',
         boxShadow: isHovered ? '0 4px 12px rgba(99, 102, 241, 0.1)' : 'none',
         transition: 'all 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
+        zIndex: activeMenu === cari.id ? 50 : 1,
+        position: 'relative'
       }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
@@ -169,7 +175,10 @@ const AnimatedCariRow: React.FC<AnimatedCariRowProps> = ({
           <div style={{
             position: 'absolute',
             right: 0,
-            top: '100%',
+            top: index >= totalCount - 3 ? 'auto' : '100%',
+            bottom: index >= totalCount - 3 ? '100%' : 'auto',
+            marginBottom: index >= totalCount - 3 ? 4 : 0,
+            marginTop: index >= totalCount - 3 ? 0 : 4,
             background: 'var(--bg-card)',
             border: '1px solid var(--border-color)',
             borderRadius: 8,
@@ -284,7 +293,8 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
     telefon: '',
     adres: '',
     vergiDairesi: '',
-    vergiNo: ''
+    vergiNo: '',
+    tip: 'DIGER'
   })
   const [formLoading, setFormLoading] = useState(false)
   
@@ -343,7 +353,8 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
       telefon: '',
       adres: '',
       vergiDairesi: '',
-      vergiNo: ''
+      vergiNo: '',
+      tip: 'DIGER'
     })
     setShowModal(true)
   }
@@ -357,7 +368,8 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
       telefon: cari.telefon || '',
       adres: cari.adres || '',
       vergiDairesi: cari.vergi_dairesi || '',
-      vergiNo: cari.vergi_no || ''
+      vergiNo: cari.vergi_no || '',
+      tip: cari.tip || 'DIGER'
     })
     setShowModal(true)
     setActiveMenu(null)
@@ -373,7 +385,8 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
       telefon: '',
       adres: '',
       vergiDairesi: '',
-      vergiNo: ''
+      vergiNo: '',
+      tip: 'DIGER'
     })
   }
 
@@ -398,7 +411,8 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
           telefon: formData.telefon || undefined,
           adres: formData.adres || undefined,
           vergiDairesi: formData.vergiDairesi || undefined,
-          vergiNo: formData.vergiNo || undefined
+          vergiNo: formData.vergiNo || undefined,
+          tip: formData.tip
         })
         
         // State'i güncelle
@@ -412,7 +426,8 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
                 telefon: formData.telefon || undefined,
                 adres: formData.adres || undefined,
                 vergi_dairesi: formData.vergiDairesi || undefined,
-                vergi_no: formData.vergiNo || undefined
+                vergi_no: formData.vergiNo || undefined,
+                tip: formData.tip
               }
             : c
         ))
@@ -425,7 +440,8 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
           telefon: formData.telefon || undefined,
           adres: formData.adres || undefined,
           vergiDairesi: formData.vergiDairesi || undefined,
-          vergiNo: formData.vergiNo || undefined
+          vergiNo: formData.vergiNo || undefined,
+          tip: formData.tip
         })
         
         // Yeni cariyi listeye ekle
@@ -902,6 +918,7 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
                   onViewEkstre={handleViewEkstre}
                   onDelete={handleDelete}
                   onEdit={openEditCariModal}
+                  totalCount={filteredCariler.length}
                 />
               ))}
               {filteredCariler.length === 0 && !loading && (
@@ -936,7 +953,9 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
           }}
           onClick={closeModal}
         >
+
           <div
+            onClick={(e) => e.stopPropagation()}
             style={{
               background: 'var(--bg-card)',
               borderRadius: 16,
@@ -946,7 +965,7 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
               boxShadow: 'var(--shadow-lg)',
               animation: 'slideUp 0.3s ease'
             }}
-            onClick={(e) => e.stopPropagation()}
+
           >
             <div style={{
               display: 'flex',
@@ -976,6 +995,87 @@ const CariListesi: React.FC<CariListesiProps> = ({ filter }) => {
             </div>
 
             <form onSubmit={handleSubmit}>
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: 'block', marginBottom: 8, fontWeight: 500, fontSize: 13, color: 'var(--text-primary)' }}>Cari Tipi</label>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  <label style={{ 
+                    flex: 1, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    padding: '10px', 
+                    borderRadius: 6, 
+                    border: formData.tip === 'MUSTAHSIL' ? '1px solid #10b981' : '1px solid var(--border-color)',
+                    background: formData.tip === 'MUSTAHSIL' ? 'rgba(16, 185, 129, 0.1)' : 'var(--bg-default)',
+                    color: formData.tip === 'MUSTAHSIL' ? '#10b981' : 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                    fontSize: 13,
+                    transition: 'all 0.2s'
+                  }}>
+                    <input 
+                      type="radio" 
+                      name="tip" 
+                      value="MUSTAHSIL" 
+                      checked={formData.tip === 'MUSTAHSIL'} 
+                      onChange={e => setFormData({...formData, tip: e.target.value})}
+                      style={{ display: 'none' }}
+                    />
+                    🧑‍🌾 Müstahsil
+                  </label>
+                  <label style={{ 
+                    flex: 1, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    padding: '10px', 
+                    borderRadius: 6, 
+                    border: formData.tip === 'FIRMA' ? '1px solid #3b82f6' : '1px solid var(--border-color)',
+                    background: formData.tip === 'FIRMA' ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-default)',
+                    color: formData.tip === 'FIRMA' ? '#3b82f6' : 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                    fontSize: 13,
+                    transition: 'all 0.2s'
+                  }}>
+                    <input 
+                      type="radio" 
+                      name="tip" 
+                      value="FIRMA" 
+                      checked={formData.tip === 'FIRMA'} 
+                      onChange={e => setFormData({...formData, tip: e.target.value})}
+                      style={{ display: 'none' }}
+                    />
+                    🏢 Firma
+                  </label>
+                  <label style={{ 
+                    flex: 1, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    padding: '10px', 
+                    borderRadius: 6, 
+                    border: formData.tip === 'DIGER' ? '1px solid var(--text-secondary)' : '1px solid var(--border-color)',
+                    background: formData.tip === 'DIGER' ? 'rgba(107, 114, 128, 0.1)' : 'var(--bg-default)',
+                    color: formData.tip === 'DIGER' ? 'var(--text-primary)' : 'var(--text-secondary)',
+                    cursor: 'pointer',
+                    fontWeight: 500,
+                    fontSize: 13,
+                    transition: 'all 0.2s'
+                  }}>
+                    <input 
+                      type="radio" 
+                      name="tip" 
+                      value="DIGER" 
+                      checked={formData.tip === 'DIGER'} 
+                      onChange={e => setFormData({...formData, tip: e.target.value})}
+                      style={{ display: 'none' }}
+                    />
+                    Diğer
+                  </label>
+                </div>
+              </div>
+
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                 <div>
                   <label style={{ display: 'block', marginBottom: 6, fontSize: 14, color: 'var(--text-secondary)' }}>

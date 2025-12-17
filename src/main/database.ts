@@ -54,6 +54,7 @@ const createTables = (): void => {
       vergi_no TEXT,
       bakiye REAL DEFAULT 0,
       bakiye_turu TEXT DEFAULT 'A',
+      tip TEXT DEFAULT 'DIGER', -- MUSTAHSIL, FIRMA, DIGER
       olusturma_tarihi TEXT DEFAULT (datetime('now')),
       guncelleme_tarihi TEXT DEFAULT (datetime('now'))
     )
@@ -66,6 +67,9 @@ const createTables = (): void => {
       cari_id TEXT NOT NULL,
       tarih TEXT NOT NULL,
       aciklama TEXT,
+      parti_no TEXT,
+      miktar REAL DEFAULT 0,
+      birim_fiyat REAL DEFAULT 0,
       borc REAL DEFAULT 0,
       alacak REAL DEFAULT 0,
       bakiye REAL DEFAULT 0,
@@ -183,6 +187,29 @@ const createTables = (): void => {
     if (!hasYon) {
       console.log('Adding yon column to cek_senet table...')
       db.prepare("ALTER TABLE cek_senet ADD COLUMN yon TEXT DEFAULT 'ALINAN'").run()
+    }
+
+    // Hareketler tablosuna yeni sütunlar ekle
+    const hareketlerInfo = db.prepare("PRAGMA table_info(hareketler)").all() as { name: string }[]
+    
+    if (!hareketlerInfo.some(col => col.name === 'parti_no')) {
+      console.log('Adding parti_no column to hareketler table...')
+      db.prepare("ALTER TABLE hareketler ADD COLUMN parti_no TEXT").run()
+    }
+    if (!hareketlerInfo.some(col => col.name === 'miktar')) {
+      console.log('Adding miktar column to hareketler table...')
+      db.prepare("ALTER TABLE hareketler ADD COLUMN miktar REAL DEFAULT 0").run()
+    }
+    if (!hareketlerInfo.some(col => col.name === 'birim_fiyat')) {
+      console.log('Adding birim_fiyat column to hareketler table...')
+      db.prepare("ALTER TABLE hareketler ADD COLUMN birim_fiyat REAL DEFAULT 0").run()
+    }
+
+    // Cariler tablosuna tip sütunu ekle
+    const carilerInfo = db.prepare("PRAGMA table_info(cariler)").all() as { name: string }[]
+    if (!carilerInfo.some(col => col.name === 'tip')) {
+      console.log('Adding tip column to cariler table...')
+      db.prepare("ALTER TABLE cariler ADD COLUMN tip TEXT DEFAULT 'DIGER'").run()
     }
   } catch (error) {
     console.error('Schema migration error:', error)
