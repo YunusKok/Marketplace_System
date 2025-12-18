@@ -1183,3 +1183,140 @@ a.stat-card {
 .animate-fade-in {
   animation: fadeIn 0.5s ease;
 }
+
+/* ===================================
+   PRINT STYLES
+   =================================== */
+@media print {
+  @page {
+    size: A4;
+    margin: 1.5cm;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  /* Only show the report content when printing */
+  .modal-overlay, 
+  .modal-overlay .modal-content, 
+  .modal-overlay .modal-content *,
+  .page-header, 
+  .page-content,
+  .page-content * {
+    visibility: visible;
+  }
+
+  .sidebar, 
+  .no-print, 
+  .modal-close, 
+  .modal-footer, 
+  .print-filter-header,
+  .no-print * {
+    display: none !important;
+  }
+
+  /* Full Page Report Support (CariEkstre) */
+  .main-content {
+    margin-left: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    overflow: visible !important;
+  }
+
+  .page-header {
+    background: white !important;
+    border-bottom: 2px solid #000 !important;
+    color: black !important;
+    padding: 0 0 10px 0 !important;
+    margin-bottom: 20px !important;
+    display: flex !important;
+    justify-content: center !important;
+  }
+
+  .page-header h1 {
+    font-size: 20px !important;
+    color: #000 !important;
+    text-transform: uppercase !important;
+  }
+
+  .page-header p {
+    display: none !important;
+  }
+
+  .modal-header {
+    border-bottom: none !important;
+    padding-bottom: 0 !important;
+    margin-bottom: 10px !important;
+    display: flex !important;
+    justify-content: center !important;
+  }
+
+  .modal-header h3 {
+    text-align: center;
+    width: auto;
+    font-size: 20px;
+    font-weight: 700;
+    text-transform: uppercase;
+    border-bottom: 2px solid #000;
+    padding: 5px 20px;
+    color: #000 !important;
+  }
+
+  .modal-body {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Table Styling for Print */
+  .data-table {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-top: 10px;
+  }
+
+  .data-table th, 
+  .data-table td {
+    border: 1px solid #333 !important;
+    color: black !important;
+    background: transparent !important;
+    padding: 6px 8px !important;
+    font-size: 11px !important;
+    text-align: left;
+  }
+
+  .data-table th {
+    background: #f0f0f0 !important;
+    font-weight: 700;
+  }
+
+  .data-table tbody tr:nth-child(even) {
+    background: #fafafa !important;
+  }
+
+  .data-table tr {
+    page-break-inside: avoid;
+  }
+
+  /* Numeric columns */
+  .data-table td[style*="text-align: right"],
+  .data-table th[style*="text-align: right"] {
+    text-align: right !important;
+  }
+
+  /* Hide Lucide Icons in print if they don't look good */
+  .modal-header svg {
+    display: none !important;
+  }
+
+  /* Footer Styling in Print */
+  .report-footer-meta {
+    margin-top: 30px;
+    display: flex !important;
+    justify-content: space-between;
+    font-size: 10px;
+    color: #666;
+    border-top: 1px solid #eee;
+    padding-top: 10px;
+  }
+}

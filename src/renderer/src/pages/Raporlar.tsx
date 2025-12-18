@@ -6,9 +6,7 @@ import {
   Users,
   TrendingUp,
   TrendingDown,
-  Wallet,
   CreditCard,
-  FileText,
   Loader2,
   X,
   Clock,
@@ -51,24 +49,6 @@ interface CekSenetData {
   cari_unvan?: string
 }
 
-interface FaturaData {
-  id: string
-  fatura_no: string
-  tarih: string
-  genel_toplam: number
-  fatura_tipi: string
-  cari_unvan?: string
-}
-
-interface KasaIslem {
-  id: string
-  tarih: string
-  aciklama: string
-  tutar: number
-  islem_tipi: string
-  cari_unvan?: string
-}
-
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat('tr-TR', {
     style: 'decimal',
@@ -99,8 +79,6 @@ const Raporlar: React.FC = () => {
     borcluCariler?: CariData[]
     alacakliCariler?: CariData[]
     vadesiGelenler?: CekSenetData[]
-    faturalar?: FaturaData[]
-    kasaIslemleri?: KasaIslem[]
   }>({})
 
   useEffect(() => {
@@ -146,16 +124,6 @@ const Raporlar: React.FC = () => {
           const cekSenetler = await window.db.getCekSenetler()
           const vadesiGelenler = cekSenetler.filter(cs => cs.durum === 'BEKLEMEDE')
           setModalData({ vadesiGelenler })
-          break
-        }
-        case 'fatura': {
-          const faturalar = await window.db.getFaturalar()
-          setModalData({ faturalar })
-          break
-        }
-        case 'kasa': {
-          const kasaIslemleri = await window.db.getKasaIslemleri()
-          setModalData({ kasaIslemleri })
           break
         }
       }
@@ -216,22 +184,6 @@ const Raporlar: React.FC = () => {
       icon: CreditCard, 
       color: 'var(--accent-warning)',
       bg: 'rgba(245, 158, 11, 0.15)'
-    },
-    { 
-      id: 'fatura', 
-      title: 'Fatura Listesi', 
-      desc: 'Tüm alış ve satış faturaları', 
-      icon: FileText, 
-      color: 'var(--accent-info)',
-      bg: 'rgba(59, 130, 246, 0.15)'
-    },
-    { 
-      id: 'kasa', 
-      title: 'Kasa Hareketleri', 
-      desc: 'Kasa tahsilat ve ödemeleri', 
-      icon: Wallet, 
-      color: 'var(--accent-primary)',
-      bg: 'rgba(139, 92, 246, 0.15)'
     },
     { 
       id: 'cari-export', 
@@ -550,99 +502,6 @@ const Raporlar: React.FC = () => {
               )}
             </div>
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setActiveModal(null)}>Kapat</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Fatura Listesi Modal */}
-      {activeModal === 'fatura' && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: 800, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
-            <div className="modal-header">
-              <h3><FileText size={20} color="var(--accent-info)" /> Fatura Listesi</h3>
-              <button className="modal-close" onClick={() => setActiveModal(null)}><X size={20} /></button>
-            </div>
-            <div className="modal-body" style={{ overflowY: 'auto', flex: 1 }}>
-              {modalLoading ? (
-                <div style={{ textAlign: 'center', padding: 40 }}><Loader2 className="animate-spin" size={32} /></div>
-              ) : modalData.faturalar?.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>Fatura bulunamadı</div>
-              ) : (
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Fatura No</th>
-                      <th>Cari</th>
-                      <th>Tarih</th>
-                      <th>Tip</th>
-                      <th style={{ textAlign: 'right' }}>Tutar</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {modalData.faturalar?.map(f => (
-                      <tr key={f.id}>
-                        <td style={{ fontFamily: 'monospace' }}>{f.fatura_no}</td>
-                        <td>{f.cari_unvan || '-'}</td>
-                        <td>{formatDate(f.tarih)}</td>
-                        <td><span className={`status-badge ${f.fatura_tipi === 'SATIS' ? 'success' : 'info'}`}>{f.fatura_tipi === 'SATIS' ? 'Satış' : 'Alış'}</span></td>
-                        <td style={{ textAlign: 'right', fontWeight: 600 }}>{formatCurrency(f.genel_toplam)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setActiveModal(null)}>Kapat</button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Kasa Hareketleri Modal */}
-      {activeModal === 'kasa' && (
-        <div className="modal-overlay">
-          <div className="modal-content" style={{ maxWidth: 800, maxHeight: '85vh', display: 'flex', flexDirection: 'column' }}>
-            <div className="modal-header">
-              <h3><Wallet size={20} color="var(--accent-primary)" /> Kasa Hareketleri</h3>
-              <button className="modal-close" onClick={() => setActiveModal(null)}><X size={20} /></button>
-            </div>
-            <div className="modal-body" style={{ overflowY: 'auto', flex: 1 }}>
-              {modalLoading ? (
-                <div style={{ textAlign: 'center', padding: 40 }}><Loader2 className="animate-spin" size={32} /></div>
-              ) : modalData.kasaIslemleri?.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 40, color: 'var(--text-secondary)' }}>Kasa işlemi bulunamadı</div>
-              ) : (
-                <table className="data-table">
-                  <thead>
-                    <tr>
-                      <th>Tarih</th>
-                      <th>Cari</th>
-                      <th>Açıklama</th>
-                      <th>Tip</th>
-                      <th style={{ textAlign: 'right' }}>Tutar</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {modalData.kasaIslemleri?.map(k => (
-                      <tr key={k.id}>
-                        <td>{formatDate(k.tarih)}</td>
-                        <td>{k.cari_unvan || '-'}</td>
-                        <td style={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{k.aciklama}</td>
-                        <td><span className={`status-badge ${k.islem_tipi === 'TAHSILAT' ? 'success' : 'danger'}`}>{k.islem_tipi === 'TAHSILAT' ? 'Tahsilat' : 'Ödeme'}</span></td>
-                        <td style={{ textAlign: 'right', fontWeight: 600, color: k.islem_tipi === 'TAHSILAT' ? 'var(--accent-success)' : 'var(--accent-danger)' }}>
-                          {k.islem_tipi === 'TAHSILAT' ? '+' : '-'}{formatCurrency(k.tutar)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-            <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setActiveModal(null)}>Kapat</button>
             </div>
           </div>
         </div>

@@ -288,19 +288,10 @@ const SatisFirmalari: React.FC = () => {
   const toplamBorc = ekstre.reduce((sum, row) => sum + row.borc, 0)
   const toplamAlacak = ekstre.reduce((sum, row) => sum + row.alacak, 0)
 
-  // Parti Raporu Oluştur (Satış Firması için anlamlı mı? Evet, ne kadar sattık)
-  const partiRaporu = useMemo(() => {
-    const map = new Map<string, {
-      parti: string, 
-      urun: string, 
-      alisMiktar: number, 
-      satisMiktar: number, 
-      alisTutar: number, 
-      satisTutar: number 
-    }>()
-
+  // Cari Defteri (Ledger) Raporu Oluştur
+  const cariDefteriRaporu = useMemo(() => {
     // Tarih formatını parse et (DD.MM.YYYY -> Date)
-    const parseDate = (dateStr: string) => {
+    const parseDateStr = (dateStr: string) => {
       const parts = dateStr.split('.')
       if (parts.length === 3) {
         return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]))
@@ -308,88 +299,95 @@ const SatisFirmalari: React.FC = () => {
       return new Date(0)
     }
 
-    const start = parseDate(reportStartDate)
-    const end = parseDate(reportEndDate)
+    const start = parseDateStr(reportStartDate)
+    const end = parseDateStr(reportEndDate)
     end.setHours(23, 59, 59, 999)
 
-    ekstre.forEach(row => {
-      if (!row.parti_no) return
+    // Hareketleri kronolojik sırala
+    const sortedEkstre = [...ekstre].sort((a, b) => {
+      const da = parseDateStr(a.tarih).getTime()
+      const db = parseDateStr(b.tarih).getTime()
+      return da - db
+    })
 
-      // Tarih Filtresi
-      const rowDate = parseDate(row.tarih)
-      if (rowDate < start || rowDate > end) return
-      
-      if (!map.has(row.parti_no)) {
-        map.set(row.parti_no, { 
-          parti: row.parti_no, 
-          urun: row.aciklama.split('-').pop()?.trim() || 'Bilinmeyen', 
-          alisMiktar: 0, 
-          satisMiktar: 0, 
-          alisTutar: 0, 
-          satisTutar: 0 
-        })
-      }
-      
-      const item = map.get(row.parti_no)!
-      // Alacak (Tahsilat veya İade Alış)
-      // Borç (Satış)
-      if (row.alacak > 0 && row.miktar) {
-         // Müşteriden mal geri gelirse? Veya sadece tahsilat.
-         // Burada raporlama mantığı Parti bazlı.
-         // Genelde Müşteriye SATIŞ yaparız (Borç).
-         // Müşteriden ALIS yapmayız normalde (İade hariç).
-         // Basit tutalım:
-         item.alisMiktar += row.miktar // Bu raporda Müşteri için "Alış" bizim "İade almamız" olabilir ama kafa karıştırmayalım
-         item.alisTutar += row.alacak
-      }
-      if (row.borc > 0 && row.miktar) {
-        item.satisMiktar += row.miktar
-        item.satisTutar += row.borc
+    // Devir Hesabı (Başlangıç tarihinden öncekiler)
+    let devirBorc = 0
+    let devirAlacak = 0
+    
+    // Rapor satırları
+    const raporSatirlari: EkstreSatir[] = []
+    
+    sortedEkstre.forEach(row => {
+      const rowDate = parseDateStr(row.tarih)
+      if (rowDate < start) {
+        devirBorc += row.borc
+        devirAlacak += row.alacak
+      } else if (rowDate <= end) {
+        raporSatirlari.push(row)
       }
     })
+
+    // Satış Firması için: Alacak (+) - Borç (-)
+    // Ama bakiye mantığı: Bakiye = Eski + Alacak - Borç
+    // Eğer sonuç > 0 -> A (Alacaklı / Bize ödeme fazlası var)
+    // Eğer sonuç < 0 -> B (Borçlu / Bize borcu var)
+    const netDevir = devirAlacak - devirBorc
     
-    return Array.from(map.values())
-  }, [ekstre, reportStartDate, reportEndDate])
-
-  // Tahsilat Toplamı (Rapor Tarih Aralığı)
-  const raporTahsilatToplam = useMemo(() => {
-    // Tarih formatını parse et (DD.MM.YYYY -> Date)
-    const parseDate = (dateStr: string) => {
-      const parts = dateStr.split('.')
-      if (parts.length === 3) {
-        return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]))
-      }
-      return new Date(0)
+    return {
+      devir: { borc: devirBorc, alacak: devirAlacak, bakiye: Math.abs(netDevir), tur: netDevir >= 0 ? 'A' : 'B' },
+      satirlar: raporSatirlari
     }
-
-    const start = parseDate(reportStartDate)
-    const end = parseDate(reportEndDate)
-    end.setHours(23, 59, 59, 999)
-
-    return ekstre.reduce((sum, row) => {
-      // Sadece TAHSILAT işlemleri (Alacak > 0 ve islem_tipi TAHSILAT veya miktar yoksa)
-      // Satış Firmasında Alacak = Tahsilat (genellikle, iade değilse)
-      // Güvenli kontrol: row.alacak > 0
-      const rowDate = parseDate(row.tarih)
-      if (rowDate >= start && rowDate <= end) {
-         return sum + row.alacak
-      }
-      return sum
-    }, 0)
   }, [ekstre, reportStartDate, reportEndDate])
 
   // Excel Export
   const handleExportExcel = async () => {
-    if (partiRaporu.length === 0) return
+    if (!cariDefteriRaporu.satirlar.length && cariDefteriRaporu.devir.bakiye === 0) return
 
-    const data = partiRaporu.map(item => ({
-       'Parti No': item.parti,
-       'Ürün Adı': item.urun,
-       'Miktar': item.satisMiktar,
-       'Tutar': item.satisTutar
-    }))
+    const data: any[] = []
+    
+    // Devir satırı
+    if (cariDefteriRaporu.devir.bakiye > 0) {
+      data.push({
+        'Tarih': '-',
+        'Açıklama': 'Devir',
+        'Borç': cariDefteriRaporu.devir.borc || '',
+        'Alacak': cariDefteriRaporu.devir.alacak || '',
+        'Bakiye': `${formatCurrency(cariDefteriRaporu.devir.bakiye)} ${cariDefteriRaporu.devir.tur}`
+      })
+    }
 
-    await window.db.exportDataToExcel(data, `${selectedCari?.unvan || 'Rapor'}_PartiRaporu.xlsx`)
+    // Hareketler
+    let runningBakiye = cariDefteriRaporu.devir.tur === 'A' ? cariDefteriRaporu.devir.bakiye : -cariDefteriRaporu.devir.bakiye
+    
+    cariDefteriRaporu.satirlar.forEach(row => {
+      runningBakiye += (row.alacak - row.borc)
+      data.push({
+        'Tarih': row.tarih,
+        'Açıklama': row.aciklama,
+        'Borç': row.borc || '',
+        'Alacak': row.alacak || '',
+        'Bakiye': `${formatCurrency(Math.abs(runningBakiye))} ${runningBakiye >= 0 ? 'A' : 'B'}`
+      })
+    })
+
+    // Alt Toplamlar
+    data.push({}) // Boş satır
+    const totalBorc = cariDefteriRaporu.satirlar.reduce((s, r) => s + r.borc, 0) + cariDefteriRaporu.devir.borc
+    const totalAlacak = cariDefteriRaporu.satirlar.reduce((s, r) => s + r.alacak, 0) + cariDefteriRaporu.devir.alacak
+    const totalKilo = cariDefteriRaporu.satirlar.reduce((s, r) => s + (r.miktar || 0), 0)
+
+    data.push({
+      'Açıklama': 'GENEL TOPLAM:',
+      'Borç': totalBorc,
+      'Alacak': totalAlacak,
+      'Bakiye': `${formatCurrency(Math.abs(totalAlacak - totalBorc))} ${totalAlacak >= totalBorc ? 'A' : 'B'}`
+    })
+    
+    data.push({
+      'Açıklama': `G.Toplam Kilo: ${totalKilo}`
+    })
+
+    await window.db.exportDataToExcel(data, `${selectedCari?.unvan || 'Rapor'}_CariDefteri.xlsx`)
   }
 
   const inputStyle = {
@@ -734,12 +732,11 @@ const SatisFirmalari: React.FC = () => {
         </div>
       )}
       
-      {/* MODAL - RAPOR - Same as Mustahsil, just different content */}
       {activeModal === 'RAPOR' && (
         <div className="modal-overlay">
-          <div className="modal-content" style={{ width: 900 }}>
+          <div className="modal-content" style={{ width: 850 }}>
              <div className="modal-header">
-               <h3>Parti Bazlı Rapor ({selectedCari?.unvan})</h3>
+               <h3>CARİ DEFTERİ</h3>
                <button onClick={() => setActiveModal('NONE')} className="no-print"><X size={18} /></button>
              </div>
              
@@ -768,10 +765,9 @@ const SatisFirmalari: React.FC = () => {
                 <button 
                   onClick={() => window.print()}
                   className="btn btn-primary no-print"
-                  title="Yazdır"
-                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px 10px', marginRight: 8 }}
+                  style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}
                 >
-                  <Printer size={16} />
+                  <Printer size={16} /> Yazdır
                 </button>
                 <button 
                   onClick={handleExportExcel}
@@ -783,27 +779,47 @@ const SatisFirmalari: React.FC = () => {
              </div>
 
              <div className="modal-body" style={{ padding: 0 }}>
-                <div style={{ maxHeight: 400, overflowY: 'auto' }}>
+                <div className="print-report-header" style={{ padding: '20px 24px', borderBottom: '1px solid #eee' }}>
+                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                      <div style={{ fontWeight: 700, fontSize: 16 }}>{selectedCari?.kod} - {selectedCari?.unvan}</div>
+                      <div style={{ fontSize: 12, color: '#666' }}>{reportStartDate} - {reportEndDate}</div>
+                   </div>
+                </div>
+
+                <div style={{ maxHeight: 500, overflowY: 'auto' }}>
                   <table className="data-table">
-                    <thead style={{ position: 'sticky', top: 0 }}>
+                    <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
                       <tr>
-                        <th>Parti</th>
-                        <th>Ürün</th>
-                        <th style={{ textAlign: 'right' }}>Miktar (KG)</th>
-                        <th style={{ textAlign: 'right' }}>Satış Tutar (TL)</th>
+                        <th style={{ width: 100 }}>Tarih</th>
+                        <th>Açıklama</th>
+                        <th style={{ textAlign: 'right', width: 120 }}>Borç</th>
+                        <th style={{ textAlign: 'right', width: 120 }}>Alacak</th>
+                        <th style={{ textAlign: 'right', width: 140 }}>Bakiye</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {partiRaporu.length === 0 ? (
-                        <tr><td colSpan={4} style={{ textAlign: 'center', padding: 20, color: '#999' }}>Bu aralıkta veri yok</td></tr>
+                      {/* Devir Satırı */}
+                      {(cariDefteriRaporu.devir.bakiye > 0 || cariDefteriRaporu.devir.borc > 0 || cariDefteriRaporu.devir.alacak > 0) && (
+                        <tr style={{ fontStyle: 'italic', background: 'rgba(0,0,0,0.02)' }}>
+                          <td>-</td>
+                          <td style={{ fontWeight: 600 }}>Devir</td>
+                          <td style={{ textAlign: 'right' }}>{cariDefteriRaporu.devir.borc > 0 ? formatCurrency(cariDefteriRaporu.devir.borc) : ''}</td>
+                          <td style={{ textAlign: 'right' }}>{cariDefteriRaporu.devir.alacak > 0 ? formatCurrency(cariDefteriRaporu.devir.alacak) : ''}</td>
+                          <td style={{ textAlign: 'right', fontWeight: 700 }}>{formatCurrency(cariDefteriRaporu.devir.bakiye)} {cariDefteriRaporu.devir.tur}</td>
+                        </tr>
+                      )}
+
+                      {cariDefteriRaporu.satirlar.length === 0 && cariDefteriRaporu.devir.bakiye === 0 ? (
+                        <tr><td colSpan={5} style={{ textAlign: 'center', padding: 20, color: '#999' }}>Bu aralıkta veri yok</td></tr>
                       ) : (
-                        partiRaporu.map((row, i) => (
-                          <tr key={i}>
-                            <td style={{ fontWeight: 600 }}>{row.parti}</td>
-                            <td>{row.urun}</td>
-                            <td style={{ textAlign: 'right' }}>{row.satisMiktar}</td>
+                        cariDefteriRaporu.satirlar.map((row) => (
+                          <tr key={row.id}>
+                            <td>{row.tarih}</td>
+                            <td>{row.aciklama}</td>
+                            <td style={{ textAlign: 'right' }}>{row.borc > 0 ? formatCurrency(row.borc) : ''}</td>
+                            <td style={{ textAlign: 'right' }}>{row.alacak > 0 ? formatCurrency(row.alacak) : ''}</td>
                             <td style={{ textAlign: 'right', fontWeight: 600 }}>
-                              {formatCurrency(row.satisTutar)}
+                              {formatCurrency(row.bakiye)} {row.bakiye_turu}
                             </td>
                           </tr>
                         ))
@@ -811,25 +827,27 @@ const SatisFirmalari: React.FC = () => {
                     </tbody>
                     <tfoot style={{ position: 'sticky', bottom: 0, background: 'var(--bg-secondary)', fontWeight: 700 }}>
                       <tr>
-                        <td colSpan={3} style={{ textAlign: 'right', padding: 12 }}>Toplam Satış:</td>
-                        <td style={{ textAlign: 'right', padding: 12, color: '#ef4444' }}>
-                          {formatCurrency(partiRaporu.reduce((s, r) => s + r.satisTutar, 0))} ₺
+                        <td colSpan={2} style={{ padding: '8px 12px' }}>
+                           <div>Genel Toplam : {cariDefteriRaporu.satirlar.length}</div>
+                           <div style={{ marginTop: 4 }}>G.Toplam Kilo : {formatCurrency(cariDefteriRaporu.satirlar.reduce((s, r) => s + (r.miktar || 0), 0)).replace(' ₺', '').replace(',00', '')}</div>
                         </td>
-                      </tr>
-                      <tr>
-                        <td colSpan={3} style={{ textAlign: 'right', padding: 12 }}>Toplam Tahsilat:</td>
-                        <td style={{ textAlign: 'right', padding: 12, color: '#10b981' }}>
-                          {formatCurrency(raporTahsilatToplam)} ₺
-                        </td>
-                      </tr>
-                      <tr>
-                        <td colSpan={3} style={{ textAlign: 'right', padding: 12 }}>Fark (Kalan):</td>
                         <td style={{ textAlign: 'right', padding: 12 }}>
-                          {formatCurrency(partiRaporu.reduce((s, r) => s + r.satisTutar, 0) - raporTahsilatToplam)} ₺
+                          {formatCurrency(cariDefteriRaporu.satirlar.reduce((s, r) => s + r.borc, 0) + cariDefteriRaporu.devir.borc)}
+                        </td>
+                        <td style={{ textAlign: 'right', padding: 12 }}>
+                          {formatCurrency(cariDefteriRaporu.satirlar.reduce((s, r) => s + r.alacak, 0) + cariDefteriRaporu.devir.alacak)}
+                        </td>
+                        <td style={{ textAlign: 'right', padding: 12 }}>
+                           {formatCurrency(cariDefteriRaporu.satirlar.length > 0 ? cariDefteriRaporu.satirlar[cariDefteriRaporu.satirlar.length-1].bakiye : cariDefteriRaporu.devir.bakiye)} {cariDefteriRaporu.satirlar.length > 0 ? cariDefteriRaporu.satirlar[cariDefteriRaporu.satirlar.length-1].bakiye_turu : cariDefteriRaporu.devir.tur}
                         </td>
                       </tr>
                     </tfoot>
                   </table>
+                </div>
+
+                <div className="report-footer-meta" style={{ padding: '10px 24px', fontSize: 11, color: '#999', display: 'flex', justifyContent: 'space-between' }}>
+                   <span>{new Date().toLocaleDateString('tr-TR')} {new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</span>
+                   <span>Sayfa: 1 / 1</span>
                 </div>
              </div>
           </div>
