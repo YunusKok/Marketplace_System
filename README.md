@@ -10,13 +10,13 @@ A modern and user-friendly **Wholesale Fruit & Vegetable Market Management Syste
 ## 📋 Features
 
 - 📊 **Dashboard** - Overview and statistics
-- 👥 **Customer Management** - Track customers and suppliers
-- 📄 **Account Statements** - Detailed account reports
-- 💰 **Cash Register** - Cash flow management
-- 📑 **Invoice Management** - Create and track invoices
-- 🧾 **Producer Receipts** - Producer transaction handling
-- 💳 **Check/Promissory Notes** - Payment tracking
-- 📈 **Reports** - Detailed reporting
+- 👥 **Customer Management** - Track customers (Müstahsil, Firma, Diğer)
+- 📄 **Account Statements** - Detailed account reports (Ekstre)
+- 💰 **Cash Register** - Cash flow management (Kasa)
+- 🧾 **Müstahsil İşlemleri** - Producer transaction handling with automatic calculation
+- 🏢 **Satış Firmaları** - Sales management for companies
+- 💳 **Check/Promissory Notes** - Payment tracking (Çek/Senet)
+- 📈 **Reports** - Detailed reporting (Parti bazlı raporlar)
 - ⚙️ **Settings** - System configuration
 
 ## 🛠️ Technologies
@@ -55,20 +55,22 @@ A modern and user-friendly **Wholesale Fruit & Vegetable Market Management Syste
    npm run dev
    ```
 
-## 📦 Build
+## 📦 Build & Packaging
 
-You can build the application for different platforms:
+You can package the application for different platforms using `electron-builder`:
 
 ```bash
-# Windows
+# Windows (.exe)
 npm run build:win
 
-# macOS
+# macOS (.dmg)
 npm run build:mac
 
-# Linux
+# Linux (.deb, .rpm)
 npm run build:linux
 ```
+
+The build outputs will be available in the `dist` or `out` directory.
 
 ## 📁 Project Structure
 
@@ -98,15 +100,10 @@ hal-programi/
 |---------|-------------|
 | `npm run dev` | Start development server |
 | `npm run build` | Build the application |
+| `npm run build:win` | Package for Windows |
 | `npm run lint` | Code quality check |
 | `npm run format` | Code formatting (Prettier) |
 | `npm run typecheck` | TypeScript type checking |
-
-## 💡 Recommended IDE Setup
-
-- [VS Code](https://code.visualstudio.com/)
-  - [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint)
-  - [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
 
 ## 📸 Screenshots
 
@@ -115,13 +112,11 @@ hal-programi/
 
 ## 📄 License
 
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License.
 
 ## 📞 Contact
 
 [![LinkedIn](https://img.shields.io/badge/LinkedIn-0077B5?logo=linkedin&logoColor=white)](https://www.linkedin.com/in/yunus-mert-kok)
-
-Feel free to connect with me on LinkedIn or open an issue for questions and suggestions.
 
 ---
 

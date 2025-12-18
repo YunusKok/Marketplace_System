@@ -58,6 +58,7 @@ const SatisFirmalari: React.FC = () => {
   
   // Modal State
   const [activeModal, setActiveModal] = useState<'NONE' | 'MAL' | 'FINANS' | 'RAPOR'>('NONE')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Rapor Filtreleri
   const [reportStartDate, setReportStartDate] = useState(
@@ -117,7 +118,7 @@ const SatisFirmalari: React.FC = () => {
       // SADECE FİRMA OLANLARI FİLTRELE
       // Not: 'DIGER' tiplerini de dahil edebiliriz veya sadece 'FIRMA'. Kullanıcı "Satış Firmaları" dedi.
       const filtered = data
-        .filter(c => c.tip === 'FIRMA')
+        .filter(c => c.tip === 'FIRMA' || c.tip === 'DIGER')
         .map(c => ({ 
           id: c.id, 
           unvan: c.unvan, 
@@ -160,19 +161,19 @@ const SatisFirmalari: React.FC = () => {
     return 0
   }, [malForm.miktar, malForm.tutar])
 
-  const handleMalSubmit = async (e: React.FormEvent) => {
+   const handleMalSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedCariId || !malForm.urunAdi || hesaplananMalTutar <= 0) {
+    if (!selectedCariId || hesaplananMalTutar <= 0) {
       alert('Lütfen geçerli bilgiler girin')
       return
-
     }
 
+    setIsSubmitting(true)
     try {
       await window.db.addHareket({
         cariId: selectedCariId,
         tarih: malForm.tarih,
-        aciklama: (malForm.partiNo ? `${malForm.partiNo}-${malForm.urunAdi}` : malForm.urunAdi),
+        aciklama: (malForm.partiNo ? `${malForm.partiNo}${malForm.urunAdi ? `-${malForm.urunAdi}` : ''}` : (malForm.urunAdi || 'Mal Satışı')),
         partiNo: malForm.partiNo,
         miktar: parseFloat(malForm.miktar) || 0,
         birimFiyat: hesaplananBirimFiyat,
@@ -182,12 +183,24 @@ const SatisFirmalari: React.FC = () => {
         islemTipi: 'SATIS'
       })
       
+      // Reset Form
+      setMalForm({
+        tip: 'SATIS',
+        tarih: new Date().toLocaleDateString('tr-TR'),
+        partiNo: '',
+        urunAdi: '',
+        miktar: '',
+        tutar: ''
+      })
+      
       setActiveModal('NONE')
       loadEkstre(selectedCariId)
       loadCariler()
     } catch (error) {
       console.error('Hata:', error)
       alert('İşlem kaydedilemedi')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -199,6 +212,7 @@ const SatisFirmalari: React.FC = () => {
       return
     }
 
+    setIsSubmitting(true)
     try {
       // SADECE TAHSILAT
       // Açıklama oluştur
@@ -222,12 +236,26 @@ const SatisFirmalari: React.FC = () => {
         banka: finansForm.banka
       })
       
+      // Reset Form
+      setFinansForm({
+        tip: 'TAHSILAT',
+        tarih: new Date().toLocaleDateString('tr-TR'),
+        odemeTuru: 'NAKIT',
+        tutar: '',
+        aciklama: '',
+        belgeNo: '',
+        vadeTarihi: new Date().toLocaleDateString('tr-TR'),
+        banka: ''
+      })
+      
       setActiveModal('NONE')
       loadEkstre(selectedCariId)
       loadCariler()
     } catch (error) {
       console.error('Hata:', error)
       alert('İşlem kaydedilemedi')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -592,9 +620,9 @@ const SatisFirmalari: React.FC = () => {
                   <input type="text" value={malForm.partiNo} onChange={e => setMalForm(p => ({ ...p, partiNo: e.target.value }))} style={inputStyle} placeholder="Örn: S1" />
                 </div>
               </div>
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ display: 'block', marginBottom: 6, fontSize: 12, color: 'var(--text-secondary)' }}>Ürün Adı</label>
-                <input type="text" value={malForm.urunAdi} onChange={e => setMalForm(p => ({ ...p, urunAdi: e.target.value }))} style={inputStyle} />
+               <div style={{ marginBottom: 12 }}>
+                <label style={{ display: 'block', marginBottom: 6, fontSize: 12, color: 'var(--text-secondary)' }}>Ürün Adı <span style={{opacity: 0.5, fontSize: 11}}>(Opsiyonel)</span></label>
+                <input type="text" value={malForm.urunAdi} onChange={e => setMalForm(p => ({ ...p, urunAdi: e.target.value }))} style={inputStyle} placeholder="Boş bırakılabilir" />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div style={{ marginBottom: 12 }}>
@@ -615,7 +643,9 @@ const SatisFirmalari: React.FC = () => {
               </div>
 
               <div className="modal-footer">
-                <button type="submit" className="btn btn-primary w-full">Satışı Kaydet</button>
+                <button type="submit" className="btn btn-primary w-full" disabled={isSubmitting}>
+                  {isSubmitting ? 'Kaydediliyor...' : 'Satışı Kaydet'}
+                </button>
               </div>
             </form>
           </div>
@@ -695,7 +725,9 @@ const SatisFirmalari: React.FC = () => {
               </div>
 
               <div className="modal-footer">
-                <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Tahsilatı Kaydet</button>
+                <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={isSubmitting}>
+                   {isSubmitting ? 'Kaydediliyor...' : 'Tahsilatı Kaydet'}
+                </button>
               </div>
             </form>
           </div>

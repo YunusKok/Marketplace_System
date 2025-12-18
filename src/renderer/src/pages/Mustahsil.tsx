@@ -58,6 +58,7 @@ const Mustahsil: React.FC = () => {
   
   // Modal State
   const [activeModal, setActiveModal] = useState<'NONE' | 'MAL' | 'FINANS' | 'RAPOR'>('NONE')
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Rapor Filtreleri
   const [reportStartDate, setReportStartDate] = useState(
@@ -76,7 +77,7 @@ const Mustahsil: React.FC = () => {
     miktar: '',
 
     // birimFiyat: '', (YENİ: Tutar manuel girilecek, birim fiyat hesaplanacak veya boş geçilecek)
-    tutar: ''
+    birimFiyat: ''
   })
   
   // Finansal İşlem Form - SADECE ÖDEME (Biz ödüyoruz)
@@ -116,7 +117,7 @@ const Mustahsil: React.FC = () => {
       const data = await window.db.getCariler()
       // SADECE MUSTAHSIL OLANLARI FİLTRELE
       const filtered = data
-        .filter(c => c.tip === 'MUSTAHSIL')
+        .filter(c => c.tip === 'MUSTAHSIL' || c.tip === 'DIGER')
         .map(c => ({ 
           id: c.id, 
           unvan: c.unvan, 
@@ -145,27 +146,26 @@ const Mustahsil: React.FC = () => {
     }
   }
 
-  // Hesaplanan tutar (Mal işlemi için) - ARTIK MANUEL
+  // Hesaplanan tutar (Mal işlemi için) - ARTIK OTOMATİK
   const hesaplananMalTutar = useMemo(() => {
-    return parseFloat(malForm.tutar) || 0
-  }, [malForm.tutar])
+    const miktar = parseFloat(malForm.miktar) || 0
+    const birimFiyat = parseFloat(malForm.birimFiyat) || 0
+    return miktar * birimFiyat
+  }, [malForm.miktar, malForm.birimFiyat])
 
   // Birim Fiyat (Otomatik Hesapla: Tutar / Miktar)
   const hesaplananBirimFiyat = useMemo(() => {
-    const miktar = parseFloat(malForm.miktar) || 0
-    const tutar = parseFloat(malForm.tutar) || 0
-    if (miktar > 0) return tutar / miktar
-    return 0
-  }, [malForm.miktar, malForm.tutar])
+    return parseFloat(malForm.birimFiyat) || 0
+  }, [malForm.birimFiyat])
 
-  const handleMalSubmit = async (e: React.FormEvent) => {
+   const handleMalSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedCariId || !malForm.urunAdi || hesaplananMalTutar <= 0) {
+    if (!selectedCariId || hesaplananMalTutar <= 0) {
       alert('Lütfen geçerli bilgiler girin')
       return
-
     }
 
+    setIsSubmitting(true)
     try {
       // Kesinti Hesabı
       let netAlacak = hesaplananMalTutar
@@ -173,7 +173,7 @@ const Mustahsil: React.FC = () => {
       await window.db.addHareket({
         cariId: selectedCariId,
         tarih: malForm.tarih,
-        aciklama: (malForm.partiNo ? `${malForm.partiNo}-${malForm.urunAdi}` : malForm.urunAdi),
+        aciklama: (malForm.partiNo ? `${malForm.partiNo}${malForm.urunAdi ? `-${malForm.urunAdi}` : ''}` : (malForm.urunAdi || 'Mal Alışı')),
         partiNo: malForm.partiNo,
         miktar: parseFloat(malForm.miktar) || 0,
         birimFiyat: hesaplananBirimFiyat,
@@ -183,12 +183,24 @@ const Mustahsil: React.FC = () => {
         islemTipi: 'ALIS'
       })
       
+      // Reset Form
+      setMalForm({
+        tip: 'ALIS',
+        tarih: new Date().toLocaleDateString('tr-TR'),
+        partiNo: '',
+        urunAdi: '',
+        miktar: '',
+        birimFiyat: ''
+      })
+      
       setActiveModal('NONE')
       loadEkstre(selectedCariId)
       loadCariler()
     } catch (error) {
       console.error('Hata:', error)
       alert('İşlem kaydedilemedi')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -200,6 +212,7 @@ const Mustahsil: React.FC = () => {
       return
     }
 
+    setIsSubmitting(true)
     try {
       // SADECE ÖDEME
       // Açıklama oluştur
@@ -223,12 +236,26 @@ const Mustahsil: React.FC = () => {
         banka: finansForm.banka
       })
       
+      // Reset Form
+      setFinansForm({
+        tip: 'ODEME',
+        tarih: new Date().toLocaleDateString('tr-TR'),
+        odemeTuru: 'NAKIT',
+        tutar: '',
+        aciklama: '',
+        belgeNo: '',
+        vadeTarihi: new Date().toLocaleDateString('tr-TR'),
+        banka: ''
+      })
+      
       setActiveModal('NONE')
       loadEkstre(selectedCariId)
       loadCariler()
     } catch (error) {
       console.error('Hata:', error)
       alert('İşlem kaydedilemedi')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -564,9 +591,9 @@ const Mustahsil: React.FC = () => {
                   <input type="text" value={malForm.partiNo} onChange={e => setMalForm(p => ({ ...p, partiNo: e.target.value }))} style={inputStyle} placeholder="Örn: S1" />
                 </div>
               </div>
-              <div style={{ marginBottom: 12 }}>
-                <label style={{ display: 'block', marginBottom: 6, fontSize: 12, color: 'var(--text-secondary)' }}>Ürün Adı</label>
-                <input type="text" value={malForm.urunAdi} onChange={e => setMalForm(p => ({ ...p, urunAdi: e.target.value }))} style={inputStyle} />
+               <div style={{ marginBottom: 12 }}>
+                <label style={{ display: 'block', marginBottom: 6, fontSize: 12, color: 'var(--text-secondary)' }}>Ürün Adı <span style={{opacity: 0.5, fontSize: 11}}>(Opsiyonel)</span></label>
+                <input type="text" value={malForm.urunAdi} onChange={e => setMalForm(p => ({ ...p, urunAdi: e.target.value }))} style={inputStyle} placeholder="Boş bırakılabilir" />
               </div>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
                 <div style={{ marginBottom: 12 }}>
@@ -574,8 +601,8 @@ const Mustahsil: React.FC = () => {
                   <input type="number" step="0.01" value={malForm.miktar} onChange={e => setMalForm(p => ({ ...p, miktar: e.target.value }))} style={inputStyle} placeholder="Boş bırakılabilir" />
                 </div>
                 <div style={{ marginBottom: 12 }}>
-                  <label style={{ display: 'block', marginBottom: 6, fontSize: 12, color: 'var(--text-secondary)' }}>Toplam Tutar (TL)</label>
-                  <input type="number" step="0.01" value={malForm.tutar} onChange={e => setMalForm(p => ({ ...p, tutar: e.target.value }))} style={inputStyle} placeholder="Manuel giriniz" />
+                  <label style={{ display: 'block', marginBottom: 6, fontSize: 12, color: 'var(--text-secondary)' }}>Birim Fiyat (TL/KG)</label>
+                  <input type="number" step="0.01" value={malForm.birimFiyat} onChange={e => setMalForm(p => ({ ...p, birimFiyat: e.target.value }))} style={inputStyle} placeholder="Birim fiyat" />
                 </div>
               </div>
 
@@ -587,7 +614,9 @@ const Mustahsil: React.FC = () => {
               </div>
 
               <div className="modal-footer">
-                <button type="submit" className="btn btn-primary w-full">Mal Alışını Kaydet</button>
+                <button type="submit" className="btn btn-primary w-full" disabled={isSubmitting}>
+                  {isSubmitting ? 'Kaydediliyor...' : 'Mal Alışını Kaydet'}
+                </button>
               </div>
             </form>
           </div>
@@ -667,7 +696,9 @@ const Mustahsil: React.FC = () => {
               </div>
 
               <div className="modal-footer">
-                <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Ödemeyi Kaydet</button>
+                <button type="submit" className="btn btn-primary" style={{ width: '100%' }} disabled={isSubmitting}>
+                  {isSubmitting ? 'Kaydediliyor...' : 'Ödemeyi Kaydet'}
+                </button>
               </div>
             </form>
           </div>
